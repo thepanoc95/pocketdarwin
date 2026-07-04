@@ -1,0 +1,6 @@
+[submodule "Kernel"]
+	path = Kernel
+	url = https://github.com/darwin-on-arm/xnu.git
+[submodule "boot/maloader"]
+	path = boot/maloader
+	url = https://github.com/shinh/maloader.git
