@@ -1,0 +1,6 @@
+framework module AndroidPlatform {
+    umbrella header "AndroidPlatform.h"
+
+    export *
+    module * { export * }
+}

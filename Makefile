@@ -182,6 +182,9 @@ drivers:
 	@echo "    $(DRIVERS_DIR)/AndroidPlatformDevice.h"
 	@echo "  To build as a kext bundle, run: make drivers_kext"
 
+HARPIA_DRIVERS := MSM8916GCC MSM8916TLMM MSM8916I2C MSM8916SPI \
+                  MSM8916UART MSM8916SDHCI MSM8916USB MSM8916SPMI
+
 drivers_kext:
 	@mkdir -p $(BUILDDIR)/drivers/AndroidPlatformDevice.kext
 	$(CC) -I$(KERNEL_DIR)/iokit \
@@ -191,9 +194,48 @@ drivers_kext:
 	      -I$(DRIVERS_DIR) \
 	      -c -o $(BUILDDIR)/drivers/AndroidPlatformDevice.o \
 	      $(DRIVERS_DIR)/AndroidPlatformDevice.cpp
+	@for drv in $(HARPIA_DRIVERS); do \
+		echo "  CC  harpia/$$drv.cpp"; \
+		$(CC) -I$(KERNEL_DIR)/iokit \
+		      -I$(KERNEL_DIR)/libkern \
+		      -I$(KERNEL_DIR)/osfmk \
+		      -I$(KERNEL_DIR)/bsd \
+		      -I$(DRIVERS_DIR) \
+		      -c -o $(BUILDDIR)/drivers/$$drv.o \
+		      $(DRIVERS_DIR)/harpia/$$drv.cpp; \
+	done
+	@$(LD) -r -o $(BUILDDIR)/drivers/AndroidPlatformDevice.kext/AndroidPlatformDevice \
+		$(BUILDDIR)/drivers/AndroidPlatformDevice.o \
+		$(foreach drv,$(HARPIA_DRIVERS),$(BUILDDIR)/drivers/$(drv).o)
 	@cp -r $(DRIVERS_DIR)/AndroidPlatformDevice.kext \
 		$(BUILDDIR)/drivers/
 	@echo "Driver built: $(BUILDDIR)/drivers/AndroidPlatformDevice.kext"
+
+FRAMEWORK_DIR := $(DRIVERS_DIR)/AndroidPlatform.framework
+FRAMEWORK_BUILDDIR := $(BUILDDIR)/drivers/AndroidPlatform.framework
+
+drivers_framework:
+	@mkdir -p $(FRAMEWORK_BUILDDIR)/Headers \
+	           $(FRAMEWORK_BUILDDIR)/Modules
+	@echo "Building AndroidPlatform.framework..."
+	$(CC) -I$(KERNEL_DIR)/iokit \
+	      -I$(KERNEL_DIR)/libkern \
+	      -I$(KERNEL_DIR)/osfmk \
+	      -I$(KERNEL_DIR)/bsd \
+	      -I$(FRAMEWORK_DIR) \
+	      -nostdlib \
+	      -c -o $(FRAMEWORK_BUILDDIR)/AndroidPlatform.o \
+	      $(FRAMEWORK_DIR)/AndroidPlatform.cpp
+	@$(LD) -r -o $(FRAMEWORK_BUILDDIR)/AndroidPlatform \
+		$(FRAMEWORK_BUILDDIR)/AndroidPlatform.o
+	@cp $(FRAMEWORK_DIR)/Info.plist $(FRAMEWORK_BUILDDIR)/
+	@cp $(FRAMEWORK_DIR)/Modules/module.modulemap $(FRAMEWORK_BUILDDIR)/Modules/
+	@for hdr in $(wildcard $(FRAMEWORK_DIR)/Headers/*.h); do \
+		cp $$hdr $(FRAMEWORK_BUILDDIR)/Headers/; \
+	done
+	@echo "Framework built: $(FRAMEWORK_BUILDDIR)"
+
+drivers: drivers_kext drivers_framework
 
 drivers_clean:
 	rm -rf $(BUILDDIR)/drivers
