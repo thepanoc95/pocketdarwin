@@ -1,4 +1,4 @@
-#include "AndroidPlatformDevice.h"
+#include "../AndroidPlatformDevice.h"
 
 /* Harpia display driver — subclasses AndroidPlatformDevice
  * to drive the Qualcomm MDP4 display controller. */

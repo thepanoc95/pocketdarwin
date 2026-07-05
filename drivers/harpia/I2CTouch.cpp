@@ -1,4 +1,4 @@
-#include "AndroidPlatformDevice.h"
+#include "../AndroidPlatformDevice.h"
 
 /* Generic I2C touch panel driver — subclasses AndroidPlatformDevice
  * for Synaptics RMI4 or Goodix touch controllers. */
