@@ -31,4 +31,4 @@ public:
     }
 };
 
-OSDefineMetaClassAndStructors(HarpiaDisplayDriver, AndroidPlatformDevice)
+OSDefineMetaClassAndStructors(HarpiaDisplayDriver, AndroidPlatformDevice);
