@@ -1,0 +1,96 @@
+cmake_minimum_required(VERSION 3.13)
+project(PocketDarwin C CXX ASM)
+
+# ---------------------------------------------------------------------------
+# Options
+# ---------------------------------------------------------------------------
+set(BOARD "harpia" CACHE STRING "Target board name")
+set(KERNEL_CONFIG "RELEASE" CACHE STRING "XNU config: RELEASE, DEVELOP, DEBUG")
+set(ARCH "arm64" CACHE STRING "Target architecture")
+
+# ---------------------------------------------------------------------------
+# Toolchain
+# ---------------------------------------------------------------------------
+if(CMAKE_CROSSCOMPILING)
+    if(NOT CMAKE_C_COMPILER)
+        set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
+    endif()
+    if(NOT CMAKE_CXX_COMPILER)
+        set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+    endif()
+    if(NOT CMAKE_ASM_COMPILER)
+        set(CMAKE_ASM_COMPILER aarch64-linux-gnu-gcc)
+    endif()
+endif()
+
+# ---------------------------------------------------------------------------
+# Kernel Loader (kernldr)
+# ---------------------------------------------------------------------------
+set(KERNELDR_DIR "${CMAKE_SOURCE_DIR}/boot/kernldr")
+set(KERNELDR_BINARY "${CMAKE_BINARY_DIR}/kernldr.bin")
+
+add_custom_command(
+    OUTPUT ${KERNELDR_BINARY}
+    COMMAND ${CMAKE_MAKE_PROGRAM} -C ${KERNELDR_DIR}
+        CC=${CMAKE_C_COMPILER}
+        AS=${CMAKE_ASM_COMPILER}
+        LD=${CMAKE_LINKER}
+    COMMAND cp ${KERNELDR_DIR}/kernldr.bin ${KERNELDR_BINARY}
+    WORKING_DIRECTORY ${KERNELDR_DIR}
+    COMMENT "Building kernldr (kernel loader)"
+)
+
+add_custom_target(kernldr ALL
+    DEPENDS ${KERNELDR_BINARY}
+)
+
+# ---------------------------------------------------------------------------
+# Device Tree Blobs
+# ---------------------------------------------------------------------------
+set(DTC dtc)
+set(DTB_DIR "${CMAKE_BINARY_DIR}/dtb")
+set(BOARD_DTS "${CMAKE_SOURCE_DIR}/devicetree/${BOARD}/main.dts")
+set(BOARD_DTB "${DTB_DIR}/${BOARD}.dtb")
+
+if(EXISTS ${BOARD_DTS})
+    add_custom_command(
+        OUTPUT ${BOARD_DTB}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${DTB_DIR}
+        COMMAND ${DTC} -I dts -O dtb -o ${BOARD_DTB} ${BOARD_DTS}
+        DEPENDS ${BOARD_DTS}
+        COMMENT "Compiling device tree: ${BOARD}.dtb"
+    )
+
+    add_custom_target(dtbs ALL
+        DEPENDS ${BOARD_DTB}
+    )
+else()
+    add_custom_target(dtbs ALL
+        COMMAND ${CMAKE_COMMAND} -E echo "No main.dts found for ${BOARD}"
+    )
+endif()
+
+# ---------------------------------------------------------------------------
+# Boot image
+# ---------------------------------------------------------------------------
+set(MKBOOTIMG mkbootimg)
+set(BOOTIMG "${CMAKE_BINARY_DIR}/boot.img")
+
+add_custom_target(bootimg
+    COMMAND ${MKBOOTIMG}
+        --kernel "${CMAKE_BINARY_DIR}/dst/mach_kernel"
+        --base 0x80000000
+        --kernel_offset 0x00008000
+        --pagesize 2048
+        --output ${BOOTIMG}
+    COMMENT "Creating Android boot image"
+)
+
+# ---------------------------------------------------------------------------
+# Top-level targets
+# ---------------------------------------------------------------------------
+add_custom_target(flash
+    COMMAND fastboot flash boot ${BOOTIMG}
+    COMMAND fastboot reboot
+    COMMENT "Flashing boot image via fastboot"
+)

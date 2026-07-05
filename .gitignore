@@ -1,0 +1,17 @@
+# Build output
+build/
+*.o
+*.elf
+*.bin
+
+# IDE
+.cproject
+.project
+.settings/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
