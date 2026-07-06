@@ -1,0 +1,1186 @@
+diff --git a/bootstrap_cmds-60/migcom.tproj/lexxer.l b/bootstrap_cmds-60/migcom.tproj/lexxer.l
+index 6ca7580..b58bbcd 100644
+--- a/bootstrap_cmds-60/migcom.tproj/lexxer.l
++++ b/bootstrap_cmds-60/migcom.tproj/lexxer.l
+@@ -117,8 +117,8 @@ static int	oldYYBegin = 0;
+ 
+ int lineno = 0;			/* Replaces lex yylineno */
+ 
+-static void doSharp(); /* process body of # directives */
+-extern void yyerror();
++static void doSharp(char *body); /* process body of # directives */
++extern void yyerror(const char *s);
+ %}
+ 
+ %Start	Normal String FileName QString SkipToEOL
+diff --git a/bootstrap_cmds-60/migcom.tproj/mig.c b/bootstrap_cmds-60/migcom.tproj/mig.c
+index bbcffeb..5ee1934 100644
+--- a/bootstrap_cmds-60/migcom.tproj/mig.c
++++ b/bootstrap_cmds-60/migcom.tproj/mig.c
+@@ -110,7 +110,7 @@
+ #include "write.h"
+ 
+ extern int yyparse();
+-static FILE *myfopen();
++static FILE *myfopen(const char *name, const char *mode);
+ 
+ static void
+ parseArgs(argc, argv)
+@@ -269,8 +269,8 @@ main(argc, argv)
+     FILE *sheader = 0;
+     FILE *dheader = 0;
+     time_t loc;
+-    extern time_t time();
+-    extern string_t ctime();
++    extern time_t time(time_t *tloc);
++    extern char *ctime(const time_t *timep);
+     extern string_t GenerationDate;
+ 
+     set_program_name("mig");
+@@ -370,9 +370,7 @@ main(argc, argv)
+ }
+ 
+ static FILE *
+-myfopen(name, mode)
+-    char *name;
+-    char *mode;
++myfopen(const char *name, const char *mode)
+ {
+     char *realname;
+     FILE *file;
+diff --git a/bootstrap_cmds-60/migcom.tproj/parser.y b/bootstrap_cmds-60/migcom.tproj/parser.y
+index 97a5aac..538045d 100644
+--- a/bootstrap_cmds-60/migcom.tproj/parser.y
++++ b/bootstrap_cmds-60/migcom.tproj/parser.y
+@@ -161,7 +161,7 @@
+ #include "global.h"
+ #include "error.h"
+ 
+-static char *import_name();
++static char *import_name(statement_kind_t sk);
+ extern int yylex(void);
+ 
+ /* forward declaration */
+diff --git a/bootstrap_cmds-60/migcom.tproj/routine.c b/bootstrap_cmds-60/migcom.tproj/routine.c
+index b052e06..130ea49 100644
+--- a/bootstrap_cmds-60/migcom.tproj/routine.c
++++ b/bootstrap_cmds-60/migcom.tproj/routine.c
+@@ -60,7 +60,7 @@
+ 
+ u_int rtNumber = 0;
+ 
+-static void rtSizeDelta();
++static void rtSizeDelta(FILE *file, int mask, routine_t *rt);
+ 
+ routine_t *
+ rtAlloc()
+@@ -88,7 +88,8 @@ rtSkip()
+ argument_t *
+ argAlloc()
+ {
+-    extern void KPD_error();
++    extern void KPD_error(FILE *, argument_t *);
++    extern void KPD_Template_error(FILE *, argument_t *, boolean_t);
+ 
+     static argument_t prototype =
+     {
+@@ -97,7 +98,7 @@ argAlloc()
+ 	akNone,			/* arg_kind_t argKind */
+ 	itNULL,			/* ipc_type_t *argType */
+ 	argKPD_NULL,		/* mach_msg_descriptor_type_t argKPD_Type */
+-	KPD_error,		/* KPD discipline for templates */
++	KPD_Template_error,	/* KPD discipline for templates */
+ 	KPD_error,		/* KPD discipline for initializing */
+ 	KPD_error,		/* KPD discipline for packing */
+ 	KPD_error,		/* KPD discipline for extracting */
+@@ -418,7 +419,7 @@ boolean_t
+ rtCheckMaskFunction(args, mask, func)
+     argument_t *args;
+     u_int mask;
+-    boolean_t (*func)(/* argument_t *arg */);
++    boolean_t (*func)(argument_t *arg);
+ {
+     register argument_t *arg;
+ 
+diff --git a/bootstrap_cmds-60/migcom.tproj/routine.h b/bootstrap_cmds-60/migcom.tproj/routine.h
+index 42cab98..f7fbf2d 100644
+--- a/bootstrap_cmds-60/migcom.tproj/routine.h
++++ b/bootstrap_cmds-60/migcom.tproj/routine.h
+@@ -48,6 +48,7 @@
+  */
+ 
+ #include <assert.h>
++#include <stdio.h>
+ 
+ #ifndef	_ROUTINE_H
+ #define	_ROUTINE_H
+@@ -332,11 +333,11 @@ typedef struct argument
+     ipc_type_t *argType;
+ 						/* Kernel Processed Data */
+     mach_msg_descriptor_type_t argKPD_Type; 	/* KPD type: port, ool, port+ool */
+-    void  (* argKPD_Template)();		/* KPD discipline for static templates */
+-    void  (* argKPD_Init)();			/* KPD discipline for initializing */
+-    void  (* argKPD_Pack)();			/* KPD discipline for packing */
+-    void  (* argKPD_Extract)();			/* KPD discipline for extracting */
+-    void  (* argKPD_TypeCheck)();		/* KPD discipline for type checking */
++    void  (* argKPD_Template)(FILE *, struct argument *, boolean_t);	/* KPD discipline for static templates */
++    void  (* argKPD_Init)(FILE *, struct argument *);	/* KPD discipline for initializing */
++    void  (* argKPD_Pack)(FILE *, struct argument *);	/* KPD discipline for packing */
++    void  (* argKPD_Extract)(FILE *, struct argument *);	/* KPD discipline for extracting */
++    void  (* argKPD_TypeCheck)(FILE *, struct argument *);	/* KPD discipline for type checking */
+ 
+     string_t argVarName;	/* local variable and argument names */
+     string_t argMsgField;	/* message field's name */
+@@ -490,26 +491,26 @@ extern void rtSkip();
+ extern argument_t *argAlloc();
+ 
+ extern boolean_t
+-rtCheckMask(/* argument_t *args, u_int mask */);
++rtCheckMask( argument_t *args, u_int mask );
+ 
+ extern boolean_t
+-rtCheckMaskFunction(/* argument_t *args, u_int mask,
+-		boolean_t (*func)(argument_t *arg) */);
++rtCheckMaskFunction(argument_t *args, u_int mask,
++                boolean_t (*func)(argument_t *arg));
+ 
+ extern routine_t *
+-rtMakeRoutine(/* identifier_t name, argument_t *args */);
++rtMakeRoutine( identifier_t name, argument_t *args );
+ extern routine_t *
+-rtMakeSimpleRoutine(/* identifier_t name, argument_t *args */);
++rtMakeSimpleRoutine( identifier_t name, argument_t *args );
+ 
+-extern void rtPrintRoutine(/* routine_t *rt */);
+-extern void rtCheckRoutine(/* routine_t *rt */);
++extern void rtPrintRoutine( routine_t *rt );
++extern void rtCheckRoutine( routine_t *rt );
+ 
+-extern char *rtRoutineKindToStr(/* routine_kind_t rk */);
++extern char *rtRoutineKindToStr( routine_kind_t rk );
+ 
+-extern int rtCountArgDescriptors(/* argument_t *args, int *argcount */);
++extern int rtCountArgDescriptors( argument_t *args, int *argcount );
+ 
+-extern void rtMinRequestSize(/* FILE *file, routine_t *rt, char *str */);
+-extern void rtMinReplySize(/* FILE *file, routine_t *rt, char *str */);
++extern void rtMinRequestSize( FILE *file, routine_t *rt, char *str );
++extern void rtMinReplySize( FILE *file, routine_t *rt, char *str );
+ 
+ #define RPCUserStruct(arg)    (arg->argType->itStruct && arg->argType->itInLine)
+ 
+diff --git a/bootstrap_cmds-60/migcom.tproj/server.c b/bootstrap_cmds-60/migcom.tproj/server.c
+index 6b268b7..4fda401 100644
+--- a/bootstrap_cmds-60/migcom.tproj/server.c
++++ b/bootstrap_cmds-60/migcom.tproj/server.c
+@@ -63,9 +63,9 @@
+ #define max(a,b) (((a) > (b)) ? (a) : (b))
+ #endif  /* max */
+ 
+-void WriteLogDefines();
+-void WriteIdentificationString();
+-static void WriteFieldDecl();
++void WriteLogDefines(FILE *file, const char *str);
++void WriteIdentificationString(FILE *file);
++static void WriteFieldDecl(FILE *file, argument_t *arg);
+ 
+ static void
+ WriteKPD_Iterator(file, in, varying, arg, bracket)
+@@ -1475,7 +1475,7 @@ static void
+ WriteServerCall(file, rt, func)
+     FILE *file;
+     routine_t *rt;
+-    void (*func)();
++    void (*func)(FILE *, argument_t *);
+ {
+     argument_t *arg = rt->rtRetCode;
+     ipc_type_t *it = arg->argType;
+@@ -1536,13 +1536,13 @@ WriteInitKPD_port(file, arg)
+ 
+     if (IS_MULTIPLE_KPD(it)) {
+ 	WriteKPD_Iterator(file, FALSE, FALSE, arg, TRUE);
+-	(void)sprintf(firststring, "\t*ptr");
+-	(void)sprintf(string, "\tptr->");
++	sprintf(firststring, "\t*ptr");
++	sprintf(string, "\tptr->");
+ 	subindex = "[i]";
+ 	close = TRUE;
+     } else {
+-	(void)sprintf(firststring, "OutP->%s", arg->argMsgField);
+-	(void)sprintf(string, "OutP->%s.", arg->argMsgField);
++	sprintf(firststring, "OutP->%s", arg->argMsgField);
++	sprintf(string, "OutP->%s.", arg->argMsgField);
+     }
+ 
+     fprintf(file, "#if\tUseStaticTemplates\n");
+@@ -1584,14 +1584,14 @@ WriteInitKPD_ool(file, arg)
+ 
+     if (IS_MULTIPLE_KPD(it)) {
+ 	WriteKPD_Iterator(file, FALSE, FALSE, arg, TRUE);
+-	(void)sprintf(firststring, "\t*ptr");
+-	(void)sprintf(string, "\tptr->");
++	sprintf(firststring, "\t*ptr");
++	sprintf(string, "\tptr->");
+ 	VarArray = it->itElement->itVarArray;
+ 	howmany = it->itElement->itNumber;
+ 	howbig = it->itElement->itSize;
+     } else {
+-	(void)sprintf(firststring, "OutP->%s", arg->argMsgField);
+-	(void)sprintf(string, "OutP->%s.", arg->argMsgField);
++	sprintf(firststring, "OutP->%s", arg->argMsgField);
++	sprintf(string, "OutP->%s.", arg->argMsgField);
+ 	VarArray = it->itVarArray;
+ 	howmany = it->itNumber;
+ 	howbig = it->itSize;
+@@ -1637,14 +1637,14 @@ WriteInitKPD_oolport(file, arg)
+ 
+     if (IS_MULTIPLE_KPD(it)) {
+         WriteKPD_Iterator(file, FALSE, FALSE, arg, TRUE);
+-	(void)sprintf(firststring, "\t*ptr");
+-	(void)sprintf(string, "\tptr->");
++	sprintf(firststring, "\t*ptr");
++	sprintf(string, "\tptr->");
+ 	VarArray = it->itElement->itVarArray;
+ 	howmany = it->itElement->itNumber;
+ 	howit = it->itElement;
+     } else {
+-	(void)sprintf(firststring, "OutP->%s", arg->argMsgField);
+-	(void)sprintf(string, "OutP->%s.", arg->argMsgField);
++	sprintf(firststring, "OutP->%s", arg->argMsgField);
++	sprintf(string, "OutP->%s.", arg->argMsgField);
+ 	VarArray = it->itVarArray;
+ 	howmany = it->itNumber;
+ 	howit = it;
+@@ -1735,12 +1735,12 @@ WriteKPD_port(file, arg)
+     if (akCheck(arg->argKind, akbVarNeeded)) {
+ 	if (IS_MULTIPLE_KPD(it)) {
+ 	    WriteKPD_Iterator(file, FALSE, it->itVarArray, arg, TRUE);
+-	    (void)sprintf(string, "\tptr->");
++	    sprintf(string, "\tptr->");
+ 	    subindex = "[i]";
+ 	    close = TRUE;
+ 	    real_it = it->itElement;
+ 	} else {
+-	    (void)sprintf(string, "OutP->%s.", arg->argMsgField);
++	    sprintf(string, "OutP->%s.", arg->argMsgField);
+ 	    real_it = it;
+ 	}
+ #ifdef MIG_KERNEL_PORT_CONVERSIONS
+@@ -1800,13 +1800,13 @@ WriteKPD_ool(file, arg)
+ 
+     if (IS_MULTIPLE_KPD(it)) {
+ 	WriteKPD_Iterator(file, FALSE, it->itVarArray, arg, TRUE);
+-	(void)sprintf(string, "\tptr->");
++	sprintf(string, "\tptr->");
+ 	VarArray = it->itElement->itVarArray;
+ 	count = arg->argSubCount;
+ 	howbig = it->itElement->itSize;
+ 	subindex = "[i]";
+     } else {
+-	(void)sprintf(string, "OutP->%s.", arg->argMsgField);
++	sprintf(string, "OutP->%s.", arg->argMsgField);
+ 	VarArray = it->itVarArray;
+ 	count = arg->argCount;
+ 	howbig = it->itSize;
+@@ -1862,12 +1862,12 @@ WriteKPD_oolport(file, arg)
+ 
+     if (IS_MULTIPLE_KPD(it)) {
+ 	WriteKPD_Iterator(file, FALSE, it->itVarArray, arg, TRUE);
+-	(void)sprintf(string, "\tptr->");
++	sprintf(string, "\tptr->");
+ 	VarArray = it->itElement->itVarArray;
+ 	count = arg->argSubCount;
+ 	subindex = "[i]";
+     } else {
+-	(void)sprintf(string, "OutP->%s.", arg->argMsgField);
++	sprintf(string, "OutP->%s.", arg->argMsgField);
+ 	VarArray = it->itVarArray;
+ 	count = arg->argCount;
+ 	subindex = "";
+@@ -1919,11 +1919,11 @@ WriteTCheckKPD_port(file, arg)
+ 
+     if (IS_MULTIPLE_KPD(it)) {
+ 	WriteKPD_Iterator(file, TRUE, FALSE, arg, TRUE);
+-	(void)sprintf(string, "ptr->");
++	sprintf(string, "ptr->");
+ 	tab = "\t";
+ 	close = TRUE;
+     } else 
+-	(void)sprintf(string, "In%dP->%s.", arg->argRequestPos, arg->argMsgField);
++	sprintf(string, "In%dP->%s.", arg->argRequestPos, arg->argMsgField);
+ 
+     fprintf(file, "\t%sif (%stype != MACH_MSG_PORT_DESCRIPTOR",
+ 	tab, string);
+@@ -2077,7 +2077,7 @@ WritePackArgValueNormal(file, arg)
+ 		arg->argVarName,
+ 		it->itNumber);
+ 	} else if (it->itNoOptArray)
+-	    fprintf(file, "\t(void)memcpy((char *) OutP->%s, (const char *) %s, %d);\n",
++	    fprintf(file, "\t()memcpy((char *) OutP->%s, (const char *) %s, %d);\n",
+ 		arg->argMsgField, arg->argVarName, it->itTypeSize);
+ 	else {
+ 	    register argument_t *count = arg->argCount;
+@@ -2086,7 +2086,7 @@ WritePackArgValueNormal(file, arg)
+ 
+ 	    /* Note btype->itNumber == count->argMultiplier */
+ 
+-	    fprintf(file, "\t(void)memcpy((char *) OutP->%s, (const char *) %s, ",
++	    fprintf(file, "\t()memcpy((char *) OutP->%s, (const char *) %s, ",
+ 		arg->argMsgField, arg->argVarName);
+ 	    if (btype->itTypeSize > 1)
+ 	        fprintf(file, "%d * ", btype->itTypeSize);
+@@ -2323,11 +2323,11 @@ InitKPD_Disciplines(args)
+     argument_t *args;
+ {
+     argument_t *arg;
+-    extern void KPD_noop();
+-    extern void KPD_error();
+-    extern void WriteTemplateKPD_port();
+-    extern void WriteTemplateKPD_ool();
+-    extern void WriteTemplateKPD_oolport();
++    extern void KPD_noop(FILE *, argument_t *);
++    extern void KPD_error(FILE *, argument_t *);
++    extern void WriteTemplateKPD_port(FILE *, argument_t *, boolean_t);
++    extern void WriteTemplateKPD_ool(FILE *, argument_t *, boolean_t);
++    extern void WriteTemplateKPD_oolport(FILE *, argument_t *, boolean_t);
+ 
+     /*
+      * WriteInitKPD_port, WriteKPD_port,  WriteExtractKPD_port, 
+diff --git a/bootstrap_cmds-60/migcom.tproj/strdefs.h b/bootstrap_cmds-60/migcom.tproj/strdefs.h
+index b8d9f92..625073d 100644
+--- a/bootstrap_cmds-60/migcom.tproj/strdefs.h
++++ b/bootstrap_cmds-60/migcom.tproj/strdefs.h
+@@ -87,7 +87,7 @@ extern void strfree( string_t string );
+ 
+ #define	streql(a, b)	(strcmp((a), (b)) == 0)
+ 
+-extern char *strbool( boolean_t bool );
++extern char *strbool( boolean_t flag );
+ extern char *strstring( string_t string );
+ extern char *toupperstr( char *string );
+ 
+diff --git a/bootstrap_cmds-60/migcom.tproj/string.c b/bootstrap_cmds-60/migcom.tproj/string.c
+index 0778e53..0bf474a 100644
+--- a/bootstrap_cmds-60/migcom.tproj/string.c
++++ b/bootstrap_cmds-60/migcom.tproj/string.c
+@@ -107,10 +107,10 @@ strfree(string)
+ }
+ 
+ char *
+-strbool(bool)
+-    boolean_t bool;
++strbool(flag)
++    boolean_t flag;
+ {
+-    if (bool)
++    if (flag)
+ 	return "TRUE";
+     else
+ 	return "FALSE";
+diff --git a/bootstrap_cmds-60/migcom.tproj/type.c b/bootstrap_cmds-60/migcom.tproj/type.c
+index 5ee6824..91dd3e7 100644
+--- a/bootstrap_cmds-60/migcom.tproj/type.c
++++ b/bootstrap_cmds-60/migcom.tproj/type.c
+@@ -620,7 +620,7 @@ itStructDecl(number, old)
+  */
+ ipc_type_t *
+ itCStringDecl(count, varying)
+-    int	count;
++    u_int count;
+     boolean_t varying;
+ {
+     register ipc_type_t *it;
+diff --git a/bootstrap_cmds-60/migcom.tproj/type.h b/bootstrap_cmds-60/migcom.tproj/type.h
+index db0c9aa..0ab3d70 100644
+--- a/bootstrap_cmds-60/migcom.tproj/type.h
++++ b/bootstrap_cmds-60/migcom.tproj/type.h
+@@ -222,23 +222,22 @@ typedef struct ipc_type
+ 
+ #define itWordAlign     sizeof(void *)
+ 
+-extern ipc_type_t *itLookUp(/* identifier_t name */);
+-extern void itInsert(/* identifier_t name, ipc_type_t *it */);
+-extern void itTypeDecl(/* identifier_t name, ipc_type_t *it */);
++extern ipc_type_t *itLookUp( identifier_t name );
++extern void itInsert( identifier_t name, ipc_type_t *it );
++extern void itTypeDecl( identifier_t name, ipc_type_t *it );
+ 
+-extern ipc_type_t *itShortDecl(/* u_int inname, string_t instr,
++extern ipc_type_t *itShortDecl(u_int inname, string_t instr,
+ 				  u_int outname, string_t outstr,
+-				  u_int dfault */);
+-extern ipc_type_t *itPrevDecl(/* identifier_t name */);
+-extern ipc_type_t *itResetType(/* ipc_type_t *it */);
+-extern ipc_type_t *itVarArrayDecl(/* u_int number, ipc_type_t *it */);
+-extern ipc_type_t *itArrayDecl(/* u_int number, ipc_type_t *it */);
+-extern ipc_type_t *itPtrDecl(/* ipc_type_t *it */);
+-extern ipc_type_t *itStructDecl(/* u_int number, ipc_type_t *it */);
+-extern ipc_type_t *itCStringDecl(/* u_int number, boolean_t varying */);
+-extern ipc_type_t *itNativeType(/* identifier_t CType, boolean_t pointer 
+-                                   identifier_t NotVal 
+-*/);
++				  u_int dfault);
++extern ipc_type_t *itPrevDecl( identifier_t name );
++extern ipc_type_t *itResetType( ipc_type_t *it );
++extern ipc_type_t *itVarArrayDecl( u_int number, ipc_type_t *it );
++extern ipc_type_t *itArrayDecl( u_int number, ipc_type_t *it );
++extern ipc_type_t *itPtrDecl( ipc_type_t *it );
++extern ipc_type_t *itStructDecl( u_int number, ipc_type_t *it );
++extern ipc_type_t *itCStringDecl( u_int number, boolean_t varying );
++extern ipc_type_t *itNativeType(identifier_t CType, boolean_t pointer,
++                                   identifier_t NotVal);
+ 
+ extern ipc_type_t *itRetCodeType;
+ extern ipc_type_t *itNdrCodeType;
+@@ -250,16 +249,16 @@ extern ipc_type_t *itRealReplyPortType;
+ extern ipc_type_t *itWaitTimeType;
+ extern ipc_type_t *itMsgOptionType;
+ extern ipc_type_t *itMakeCountType();
+-extern ipc_type_t *itMakeSubCountType();
++extern ipc_type_t *itMakeSubCountType(int count, boolean_t varying, string_t name);
+ extern ipc_type_t *itMakePolyType();
+ extern ipc_type_t *itMakeDeallocType();
+ 
+ extern void init_type();
+ 
+-extern void itCheckReturnType(/* identifier_t name, ipc_type_t *it */);
+-extern void itCheckRequestPortType(/* identifier_t name, ipc_type_t *it */);
+-extern void itCheckReplyPortType(/* identifier_t name, ipc_type_t *it */);
+-extern void itCheckIntType(/* identifier_t name, ipc_type_t *it */);
+-extern void itCheckTokenType(/* identifier_t name, ipc_type_t *it */);
++extern void itCheckReturnType( identifier_t name, ipc_type_t *it );
++extern void itCheckRequestPortType( identifier_t name, ipc_type_t *it );
++extern void itCheckReplyPortType( identifier_t name, ipc_type_t *it );
++extern void itCheckIntType( identifier_t name, ipc_type_t *it );
++extern void itCheckTokenType( identifier_t name, ipc_type_t *it );
+ 
+ #endif	/* _TYPE_H */
+diff --git a/bootstrap_cmds-60/migcom.tproj/user.c b/bootstrap_cmds-60/migcom.tproj/user.c
+index 979627a..d819b56 100644
+--- a/bootstrap_cmds-60/migcom.tproj/user.c
++++ b/bootstrap_cmds-60/migcom.tproj/user.c
+@@ -66,8 +66,8 @@ char *MessFreeRoutine = "mig_user_deallocate";
+ char stRetCode[] = "ReturnValue";
+ char stRetNone[] = "";
+ 
+-void WriteLogDefines();
+-void WriteIdentificationString();
++void WriteLogDefines(FILE *file, const char *str);
++void WriteIdentificationString(FILE *file);
+ 
+ static void
+ WriteKPD_Iterator(file, in, overwrite, varying, arg, bracket)
+@@ -728,13 +728,13 @@ WriteKPD_port(file, arg)
+ 
+     if (IS_MULTIPLE_KPD(it)) {
+ 	WriteKPD_Iterator(file, TRUE, FALSE, it->itVarArray, arg, TRUE);
+-	(void)sprintf(firststring, "\t*ptr");
+-	(void)sprintf(string, "\tptr->");
++	sprintf(firststring, "\t*ptr");
++	sprintf(string, "\tptr->");
+ 	subindex = "[i]";
+ 	real_it = it->itElement;
+     } else {
+-	(void)sprintf(firststring, "InP->%s", arg->argMsgField);
+-	(void)sprintf(string, "InP->%s.", arg->argMsgField);
++	sprintf(firststring, "InP->%s", arg->argMsgField);
++	sprintf(string, "InP->%s.", arg->argMsgField);
+ 	real_it = it;
+     }
+ 
+@@ -835,15 +835,15 @@ WriteKPD_ool(file, arg)
+ 
+     if (IS_MULTIPLE_KPD(it)) {
+ 	WriteKPD_Iterator(file, TRUE, FALSE, it->itVarArray, arg, TRUE);
+-	(void)sprintf(firststring, "\t*ptr");
+-	(void)sprintf(string, "\tptr->");
++	sprintf(firststring, "\t*ptr");
++	sprintf(string, "\tptr->");
+ 	VarArray = it->itElement->itVarArray;
+ 	howmany = it->itElement->itNumber;
+ 	howbig = it->itElement->itSize;
+ 	subindex = "[i]";
+     } else {
+-	(void)sprintf(firststring, "InP->%s", arg->argMsgField);
+-	(void)sprintf(string, "InP->%s.", arg->argMsgField);
++	sprintf(firststring, "InP->%s", arg->argMsgField);
++	sprintf(string, "InP->%s.", arg->argMsgField);
+ 	VarArray = it->itVarArray;
+ 	howmany = it->itNumber;
+ 	howbig = it->itSize;
+@@ -935,16 +935,16 @@ WriteKPD_oolport(file, arg)
+ 
+     if (IS_MULTIPLE_KPD(it)) {
+         WriteKPD_Iterator(file, TRUE, FALSE, it->itVarArray, arg, TRUE);
+-	(void)sprintf(firststring, "\t*ptr");
+-	(void)sprintf(string, "\tptr->");
++	sprintf(firststring, "\t*ptr");
++	sprintf(string, "\tptr->");
+ 	VarArray = it->itElement->itVarArray;
+ 	howmany = it->itElement->itNumber;
+ 	howstr = it->itElement->itInNameStr;
+ 	count = arg->argSubCount;
+ 	subindex = "[i]";
+     } else {
+-	(void)sprintf(firststring, "InP->%s", arg->argMsgField);
+-	(void)sprintf(string, "InP->%s.", arg->argMsgField);
++	sprintf(firststring, "InP->%s", arg->argMsgField);
++	sprintf(string, "InP->%s.", arg->argMsgField);
+ 	VarArray = it->itVarArray;
+ 	howmany = it->itNumber;
+ 	howstr = it->itInNameStr;
+@@ -1156,12 +1156,12 @@ WritePackArgValueNormal(file, arg)
+ 		arg->argVarName,
+ 		it->itNumber);
+ 	} else if (it->itNoOptArray)
+-	    fprintf(file, "\t(void)memcpy((char *) InP->%s, (const char *) %s%s, %d);\n",
++	    fprintf(file, "\t()memcpy((char *) InP->%s, (const char *) %s%s, %d);\n",
+ 		arg->argMsgField, ref, arg->argVarName, it->itTypeSize);
+ 	else {
+ 
+ 	    /*
+-	     *	Copy in variable-size inline array with (void)memcpy,
++	     *	Copy in variable-size inline array with ()memcpy,
+ 	     *	after checking that number of elements doesn`t
+ 	     *	exceed declared maximum.
+ 	     */
+@@ -1180,7 +1180,7 @@ WritePackArgValueNormal(file, arg)
+ 	        fprintf(file, "\t}\n");
+ 	    }
+ 
+-	    fprintf(file, "\t(void)memcpy((char *) InP->%s, (const char *) %s%s, ",
++	    fprintf(file, "\t()memcpy((char *) InP->%s, (const char *) %s%s, ",
+ 		arg->argMsgField, ref, arg->argVarName);
+ 	    if (btype->itTypeSize > 1)
+ 		    fprintf(file, "%d * ", btype->itTypeSize);
+@@ -1517,11 +1517,11 @@ WriteTCheckKPD_port(file, arg)
+ 
+     if (IS_MULTIPLE_KPD(it)) {
+ 	WriteKPD_Iterator(file, FALSE, FALSE, FALSE, arg, TRUE);
+-	(void)sprintf(string, "ptr->");
++	sprintf(string, "ptr->");
+ 	tab = "\t";
+ 	close = TRUE;
+     } else 
+-	(void)sprintf(string, "Out%dP->%s.", arg->argReplyPos, arg->argMsgField);
++	sprintf(string, "Out%dP->%s.", arg->argReplyPos, arg->argMsgField);
+     fprintf(file, "\t%sif (%stype != MACH_MSG_PORT_DESCRIPTOR",
+ 	tab, string);
+     if (arg->argPoly == argNULL && !it->itVarArray)
+@@ -1774,7 +1774,7 @@ WriteExtractArgValueNormal(file, arg)
+ 	    /*
+ 	     *	Copy out variable-size C string with mig_strncpy.
+ 	     */
+-	    fprintf(file, "\t(void) mig_strncpy(%s%s, %s->%s, %d);\n",
++	    fprintf(file, "\t() mig_strncpy(%s%s, %s->%s, %d);\n",
+ 		ref,
+ 		arg->argVarName,
+ 		who,
+@@ -1782,12 +1782,12 @@ WriteExtractArgValueNormal(file, arg)
+ 		argType->itNumber);
+ 	}
+ 	else if (argType->itNoOptArray)
+-	    fprintf(file, "\t(void)memcpy((char *) %s%s, (const char *) %s->%s, %d);\n",
++	    fprintf(file, "\t()memcpy((char *) %s%s, (const char *) %s->%s, %d);\n",
+ 	  	ref, arg->argVarName, who, arg->argMsgField, argType->itTypeSize);
+ 	else {
+ 
+ 	    /*
+-	     *	Copy out variable-size inline array with (void)memcpy,
++	     *	Copy out variable-size inline array with ()memcpy,
+ 	     *	after checking that number of elements doesn`t
+ 	     *	exceed user`s maximum.
+ 	     */
+@@ -1809,7 +1809,7 @@ WriteExtractArgValueNormal(file, arg)
+ 	     * fill user`s area as much as possible.  Return the correct
+ 	     * number of elements.
+ 	     */
+-	    fprintf(file, "\t\t(void)memcpy((char *) %s%s, (const char *) Out%dP->%s, ",
++	    fprintf(file, "\t\t()memcpy((char *) %s%s, (const char *) Out%dP->%s, ",
+ 		ref, arg->argVarName, arg->argReplyPos, arg->argMsgField);
+ 	    if (btype->itTypeSize > 1)
+ 		fprintf(file, "%d * ", btype->itTypeSize);
+@@ -1825,7 +1825,7 @@ WriteExtractArgValueNormal(file, arg)
+ 
+ 	    fprintf(file, "\t}\n");
+ 
+-	    fprintf(file, "\t(void)memcpy((char *) %s%s, (const char *) Out%dP->%s, ",
++	    fprintf(file, "\t()memcpy((char *) %s%s, (const char *) Out%dP->%s, ",
+ 		ref, arg->argVarName, arg->argReplyPos, arg->argMsgField);
+ 	    if (btype->itTypeSize > 1)
+ 		fprintf(file, "%d * ",
+@@ -2410,7 +2410,7 @@ WriteShortCircInArgBefore(file, arg)
+ 		    (!(arg->argFlags & flAuto) || !(arg->argFlags & flConst))) {
+ 		/* Need to map a copy of the array: */
+ 		GetArraySize(arg, size);
+-		fprintf(file, "\t(void)vm_read(mach_task_self(),\n");
++		fprintf(file, "\t()vm_read(mach_task_self(),\n");
+ 		fprintf(file, "\t\t      (vm_address_t) %s%s, %s, (vm_address_t *) &_%sTemp_, &_MIG_Ignore_Count_);\n",
+ 					(arg->argByReferenceUser ? "*" : ""),
+ 					arg->argVarName, size, arg->argVarName);
+@@ -2531,7 +2531,7 @@ WriteShortCircInArgAfter(file, arg)
+ 				 !(arg->argFlags & flConst))
+ 		)) {
+ 		/* Need to dealloc the temporary: */
+-		fprintf(file, "\t(void)vm_deallocate(mach_task_self(),");
++		fprintf(file, "\t()vm_deallocate(mach_task_self(),");
+ 		fprintf(file, " (vm_address_t *) _%sTemp_, %s);\n",
+ 					    arg->argVarName, size);
+ 	    }
+@@ -2579,14 +2579,14 @@ WriteShortCircOutArgAfter(file, arg)
+ 	    GetArraySize(arg, size);
+ 	    if (!(arg->argFlags & flDealloc) || (arg->argFlags & flOverwrite)) {
+ 		/* Copy argument to vm_allocated Temp: */
+-		fprintf(file, "\t(void)vm_read(mach_task_self(),\n");
++		fprintf(file, "\t()vm_read(mach_task_self(),\n");
+ 		fprintf(file, "\t\t      (vm_address_t) %s%s, %s, (vm_address_t *) &_%sTemp_, &_MIG_Ignore_Count_);\n",
+ 				    (arg->argByReferenceUser ? "*" : ""),
+ 				    arg->argVarName, size, arg->argVarName);
+ 		if (!argIsIn(arg) && (arg->argFlags & flDealloc) &&
+ 					(arg->argFlags & flOverwrite)) {
+ 		    /* Deallocate argument returned by server */
+-		    fprintf(file, "\t(void)vm_deallocate(mach_task_self(),");
++		    fprintf(file, "\t()vm_deallocate(mach_task_self(),");
+ 		    fprintf(file, " (vm_address_t *) %s%s, %s);\n",
+ 				    (arg->argByReferenceUser ? "*" : ""),
+ 				    arg->argVarName, size);
+@@ -2783,11 +2783,11 @@ InitKPD_Disciplines(args)
+     argument_t *args;
+ {
+     argument_t *arg;
+-    extern void KPD_noop();
+-    extern void KPD_error();
+-    extern void WriteTemplateKPD_port();
+-    extern void WriteTemplateKPD_ool();
+-    extern void WriteTemplateKPD_oolport();
++    extern void KPD_noop(FILE *, argument_t *);
++    extern void KPD_error(FILE *, argument_t *);
++    extern void WriteTemplateKPD_port(FILE *, argument_t *, boolean_t);
++    extern void WriteTemplateKPD_ool(FILE *, argument_t *, boolean_t);
++    extern void WriteTemplateKPD_oolport(FILE *, argument_t *, boolean_t);
+ 
+     /*
+      * WriteKPD_port,  WriteExtractKPD_port, 
+diff --git a/bootstrap_cmds-60/migcom.tproj/utils.c b/bootstrap_cmds-60/migcom.tproj/utils.c
+index 9eecd4a..727b211 100644
+--- a/bootstrap_cmds-60/migcom.tproj/utils.c
++++ b/bootstrap_cmds-60/migcom.tproj/utils.c
+@@ -260,7 +260,7 @@ void
+ WriteList(file, args, func, mask, between, after)
+     FILE *file;
+     argument_t *args;
+-    void (*func)();
++    void (*func)(FILE *, argument_t *);
+     u_int mask;
+     char *between, *after;
+ {
+@@ -286,7 +286,7 @@ static boolean_t
+ WriteReverseListPrim(file, arg, func, mask, between)
+     FILE *file;
+     register argument_t *arg;
+-    void (*func)();
++    void (*func)(FILE *, argument_t *);
+     u_int mask;
+     char *between;
+ {
+@@ -313,7 +313,7 @@ void
+ WriteReverseList(file, args, func, mask, between, after)
+     FILE *file;
+     argument_t *args;
+-    void (*func)();
++    void (*func)(FILE *, argument_t *);
+     u_int mask;
+     char *between, *after;
+ {
+@@ -406,7 +406,7 @@ void
+ WriteFieldDeclPrim(file, arg, tfunc)
+     FILE *file;
+     argument_t *arg;
+-    char *(*tfunc)();
++    char *(*tfunc)(ipc_type_t *);
+ {
+     register ipc_type_t *it = arg->argType;
+ 
+@@ -475,7 +475,7 @@ void
+ WriteStructDecl(file, args, func, mask, name, simple, trailer, trailer_t, template_only)
+     FILE *file;
+     argument_t *args;
+-    void (*func)();
++    void (*func)(FILE *, argument_t *);
+     u_int mask;
+     char *name;
+     boolean_t simple, trailer;
+@@ -877,6 +877,24 @@ KPD_noop(file, arg)
+ {
+ }
+ 
++void
++KPD_Template_error(file, arg, in)
++    FILE *file;
++    argument_t *arg;
++    boolean_t in;
++{
++    printf("MiG internal error: argument is %s\n", arg->argVarName);
++    exit(1);
++}
++
++void
++KPD_Template_noop(file, arg, in)
++    FILE *file;
++    argument_t *arg;
++    boolean_t in;
++{
++}
++
+ static void
+ WriteStringDynArgs(args, mask, InPOutP, str_oolports, str_ool)
+     argument_t *args;
+diff --git a/cctools-836/ar/contents.c b/cctools-836/ar/contents.c
+index 83cec42..fd82e68 100644
+--- a/cctools-836/ar/contents.c
++++ b/cctools-836/ar/contents.c
+@@ -80,6 +80,7 @@ static char rcsid[] = "$OpenBSD: contents.c,v 1.2 1996/06/26 05:31:19 deraadt Ex
+ 
+ #include "archive.h"
+ #include "extern.h"
++void strmode(int mode, char *p);
+ 
+ /*
+  * contents --
+diff --git a/cctools-836/as/input-scrub.c b/cctools-836/as/input-scrub.c
+index 008c347..b210d65 100644
+--- a/cctools-836/as/input-scrub.c
++++ b/cctools-836/as/input-scrub.c
+@@ -384,14 +384,9 @@ char *filename)
+   fprintf (stderr,"as:file(%s) %s! ",
+ 	   filename, gripe
+ 	   );
+-  if (errno > sys_nerr)
+-    {
+-      fprintf (stderr, "Unknown error #%d.", errno);
+-    }
+-  else
+-    {
+-      fprintf (stderr, "%s.", sys_errlist [errno]);
+-    }
++  {
++      fprintf (stderr, "%s.", strerror(errno));
++  }
+   (void)putc('\n', stderr);
+   errno = 0;			/* After reporting, clear it. */
+   if (input_file_is_open())	/* RMS says don't mention line # if not needed. */
+diff --git a/cctools-836/as/sections.c b/cctools-836/as/sections.c
+index 5b00b02..72b6388 100644
+--- a/cctools-836/as/sections.c
++++ b/cctools-836/as/sections.c
+@@ -24,6 +24,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+  * Mach-O sections are chains of fragments.
+  */
+ #include <stdlib.h>
++#include <string.h>
+ #include <strings.h>
+ #include "sections.h"
+ #include "obstack.h"
+diff --git a/cctools-836/config.status b/cctools-836/config.status
+index 5683c39..2a6748e 100755
+--- a/cctools-836/config.status
++++ b/cctools-836/config.status
+@@ -1,4 +1,4 @@
+-#! /bin/bash
++#! /bin/sh
+ # Generated by configure.
+ # Run this file to recreate the current configuration.
+ # Compiler output produced by configure, useful for debugging
+@@ -8,7 +8,7 @@ debug=false
+ ac_cs_recheck=false
+ ac_cs_silent=false
+ 
+-SHELL=${CONFIG_SHELL-/bin/bash}
++SHELL=${CONFIG_SHELL-/bin/sh}
+ export SHELL
+ ## -------------------- ##
+ ## M4sh Initialization. ##
+@@ -449,10 +449,10 @@ Copyright (C) 2010 Free Software Foundation, Inc.
+ This config.status script is free software; the Free Software Foundation
+ gives unlimited permission to copy, distribute and modify it."
+ 
+-ac_pwd='/media/mmc2/build/xnu-deps-linux/cctools-836'
++ac_pwd='/home/oaky/Projects/PocketDarwin/BuildHost/xnu-deps-linux/cctools-836'
+ srcdir='.'
+ INSTALL='/usr/bin/install -c'
+-MKDIR_P='/bin/mkdir -p'
++MKDIR_P='/usr/bin/mkdir -p'
+ AWK='gawk'
+ test -n "$AWK" || AWK=awk
+ # The default lists apply if the user does not specify any file.
+@@ -531,10 +531,10 @@ if $ac_cs_silent; then
+ fi
+ 
+ if $ac_cs_recheck; then
+-  set X '/bin/bash' './configure'  '--target=arm-apple-darwin11' '--prefix=/' 'target_alias=arm-apple-darwin11' $ac_configure_extra_args --no-create --no-recursion
++  set X '/bin/sh' './configure'  '--target=arm-apple-darwin11' '--prefix=/' 'target_alias=arm-apple-darwin11' $ac_configure_extra_args --no-create --no-recursion
+   shift
+-  $as_echo "running CONFIG_SHELL=/bin/bash $*" >&6
+-  CONFIG_SHELL='/bin/bash'
++  $as_echo "running CONFIG_SHELL=/bin/sh $*" >&6
++  CONFIG_SHELL='/bin/sh'
+   export CONFIG_SHELL
+   exec "$@"
+ fi
+@@ -566,25 +566,25 @@ macro_revision='1.3337'
+ enable_static='no'
+ enable_shared='yes'
+ pic_mode='default'
+-enable_fast_install='yes'
+-SHELL='/bin/bash'
++enable_fast_install='needless'
++SHELL='/bin/sh'
+ ECHO='printf %s\n'
+ PATH_SEPARATOR=':'
+ host_alias=''
+-host='armv7l-unknown-linux-gnueabihf'
+-host_os='linux-gnueabihf'
++host='x86_64-unknown-linux-gnu'
++host_os='linux-gnu'
+ build_alias=''
+-build='armv7l-unknown-linux-gnueabihf'
+-build_os='linux-gnueabihf'
+-SED='/bin/sed'
+-Xsed='/bin/sed -e 1s/^X//'
+-GREP='/bin/grep'
+-EGREP='/bin/grep -E'
+-FGREP='/bin/grep -F'
+-LD='/usr/bin/ld'
++build='x86_64-unknown-linux-gnu'
++build_os='linux-gnu'
++SED='/usr/bin/sed'
++Xsed='/usr/bin/sed -e 1s/^X//'
++GREP='/usr/bin/grep'
++EGREP='/usr/bin/grep -E'
++FGREP='/usr/bin/grep -F'
++LD='/usr/bin/ld -m elf_x86_64'
+ NM='/usr/bin/nm -B'
+ LN_S='ln -s'
+-max_cmd_len='805306365'
++max_cmd_len='3145728'
+ ac_objext='o'
+ exeext=''
+ lt_unset='unset'
+@@ -676,7 +676,7 @@ need_version='no'
+ version_type='linux'
+ runpath_var='LD_RUN_PATH'
+ shlibpath_var='LD_LIBRARY_PATH'
+-shlibpath_overrides_runpath='no'
++shlibpath_overrides_runpath='yes'
+ libname_spec='lib$name'
+ library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major $libname${shared_ext}'
+ soname_spec='${libname}${release}${shared_ext}$major'
+@@ -686,8 +686,8 @@ postuninstall_cmds=''
+ finish_cmds='PATH="\$PATH:/sbin" ldconfig -n $libdir'
+ finish_eval=''
+ hardcode_into_libs='yes'
+-sys_lib_search_path_spec='/usr/lib/arm-linux-gnueabihf /lib/arm-linux-gnueabihf /usr/lib/gcc/arm-linux-gnueabihf/4.6 /usr/lib /lib '
+-sys_lib_dlsearch_path_spec='/lib /usr/lib /lib/arm-linux-gnueabihf /usr/lib/arm-linux-gnueabihf /usr/lib/arm-linux-gnueabihf/mesa /usr/local/lib '
++sys_lib_search_path_spec='/home/oaky/.local/share/swiftly/toolchains/6.3.2/usr/lib/clang/21 /usr/lib64/gcc/x86_64-pc-linux-gnu/16.1.1 /usr/lib64 /lib64 /lib /usr/lib '
++sys_lib_dlsearch_path_spec='/lib /usr/lib /usr/lib/R/lib /opt/intel/oneapi/compiler/latest/linux/lib /opt/intel/oneapi/compiler/latest/lib /opt/intel/oneapi/compiler/2026.0/lib/ /opt/intel/oneapi/lib/intel64 /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64 /usr/lib32 /usr/lib/libfakeroot '
+ hardcode_action='immediate'
+ enable_dlopen='unknown'
+ enable_dlopen_self='unknown'
+@@ -700,7 +700,7 @@ postdep_objects=''
+ predeps=''
+ postdeps=''
+ compiler_lib_search_path=''
+-LD_CXX='/usr/bin/ld'
++LD_CXX='/usr/bin/ld -m elf_x86_64'
+ reload_flag_CXX=' -r'
+ reload_cmds_CXX='$LD$reload_flag -o $output$reload_objs'
+ old_archive_cmds_CXX='$AR $AR_FLAGS $oldlib$oldobjs~$RANLIB $tool_oldlib'
+@@ -742,12 +742,12 @@ prelink_cmds_CXX=''
+ postlink_cmds_CXX=''
+ file_list_spec_CXX=''
+ hardcode_action_CXX='immediate'
+-compiler_lib_search_dirs_CXX='/usr/lib/gcc/arm-linux-gnueabihf/4.6/../../../arm-linux-gnueabihf /lib/arm-linux-gnueabihf /usr/lib/arm-linux-gnueabihf /usr/lib/gcc/arm-linux-gnueabihf/4.6 /usr/lib/gcc/arm-linux-gnueabihf/4.6/../../../arm-linux-gnueabihf /usr/lib/gcc/arm-linux-gnueabihf/4.6/../../.. /lib/arm-linux-gnueabihf /lib /usr/lib/arm-linux-gnueabihf /usr/lib'
+-predep_objects_CXX='/usr/lib/gcc/arm-linux-gnueabihf/4.6/../../../arm-linux-gnueabihf/crti.o /usr/lib/gcc/arm-linux-gnueabihf/4.6/crtbeginS.o'
+-postdep_objects_CXX='/usr/lib/gcc/arm-linux-gnueabihf/4.6/crtendS.o /usr/lib/gcc/arm-linux-gnueabihf/4.6/../../../arm-linux-gnueabihf/crtn.o'
++compiler_lib_search_dirs_CXX='/usr/lib64/gcc/x86_64-pc-linux-gnu/16.1.1 /usr/lib64/gcc/x86_64-pc-linux-gnu/16.1.1/../../../../lib64 /lib/../lib64 /usr/lib64 /lib /usr/lib'
++predep_objects_CXX='/usr/lib64/gcc/x86_64-pc-linux-gnu/16.1.1/../../../../lib64/crti.o /usr/lib64/gcc/x86_64-pc-linux-gnu/16.1.1/crtbeginS.o'
++postdep_objects_CXX='/usr/lib64/gcc/x86_64-pc-linux-gnu/16.1.1/crtendS.o /usr/lib64/gcc/x86_64-pc-linux-gnu/16.1.1/../../../../lib64/crtn.o'
+ predeps_CXX=''
+-postdeps_CXX='-lstdc++ -lm -lgcc_s -lc -lgcc_s'
+-compiler_lib_search_path_CXX='-L/usr/lib/gcc/arm-linux-gnueabihf/4.6/../../../arm-linux-gnueabihf -L/lib/arm-linux-gnueabihf -L/usr/lib/arm-linux-gnueabihf -L/usr/lib/gcc/arm-linux-gnueabihf/4.6 -L/usr/lib/gcc/arm-linux-gnueabihf/4.6/../../../arm-linux-gnueabihf -L/usr/lib/gcc/arm-linux-gnueabihf/4.6/../../.. -L/lib/arm-linux-gnueabihf -L/lib -L/usr/lib/arm-linux-gnueabihf -L/usr/lib'
++postdeps_CXX='-lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc'
++compiler_lib_search_path_CXX='-L/usr/lib64/gcc/x86_64-pc-linux-gnu/16.1.1 -L/usr/lib64/gcc/x86_64-pc-linux-gnu/16.1.1/../../../../lib64 -L/lib/../lib64 -L/usr/lib64 -L/lib -L/usr/lib'
+ 
+ LTCC='clang'
+ LTCFLAGS='-g -O2'
+@@ -905,9 +905,9 @@ S["am__EXEEXT_FALSE"]=""
+ S["am__EXEEXT_TRUE"]="#"
+ S["LTLIBOBJS"]=""
+ S["LIBOBJS"]=""
+-S["LD_CLASSIC"]="ld"
++S["LD_CLASSIC"]=""
+ S["LTO_DEFS"]="-DLTO_SUPPORT=1"
+-S["LTO_LIBS"]="-L/usr/lib/llvm-2.9/lib -lLTO"
++S["LTO_LIBS"]="-L/usr/lib -lLTO"
+ S["llvm_config"]="yes"
+ S["ENDIAN_FLAG"]="-D__LITTLE_ENDIAN__=1"
+ S["CRYPT_LIBS"]="-lcrypto"
+@@ -953,11 +953,11 @@ S["LN_S"]="ln -s"
+ S["NM"]="/usr/bin/nm -B"
+ S["ac_ct_DUMPBIN"]=""
+ S["DUMPBIN"]=""
+-S["LD"]="/usr/bin/ld"
+-S["FGREP"]="/bin/grep -F"
+-S["EGREP"]="/bin/grep -E"
+-S["GREP"]="/bin/grep"
+-S["SED"]="/bin/sed"
++S["LD"]="/usr/bin/ld -m elf_x86_64"
++S["FGREP"]="/usr/bin/grep -F"
++S["EGREP"]="/usr/bin/grep -E"
++S["GREP"]="/usr/bin/grep"
++S["SED"]="/usr/bin/sed"
+ S["am__fastdepCC_FALSE"]="#"
+ S["am__fastdepCC_TRUE"]=""
+ S["CCDEPMODE"]="depmode=gcc3"
+@@ -985,16 +985,16 @@ S["AMTAR"]="$${TAR-tar}"
+ S["am__leading_dot"]="."
+ S["SET_MAKE"]=""
+ S["AWK"]="gawk"
+-S["mkdir_p"]="/bin/mkdir -p"
+-S["MKDIR_P"]="/bin/mkdir -p"
++S["mkdir_p"]="/usr/bin/mkdir -p"
++S["MKDIR_P"]="/usr/bin/mkdir -p"
+ S["INSTALL_STRIP_PROGRAM"]="$(install_sh) -c -s"
+ S["STRIP"]="strip"
+-S["install_sh"]="${SHELL} /media/mmc2/build/xnu-deps-linux/cctools-836/install-sh"
+-S["MAKEINFO"]="${SHELL} /media/mmc2/build/xnu-deps-linux/cctools-836/missing --run makeinfo"
+-S["AUTOHEADER"]="${SHELL} /media/mmc2/build/xnu-deps-linux/cctools-836/missing --run autoheader"
+-S["AUTOMAKE"]="${SHELL} /media/mmc2/build/xnu-deps-linux/cctools-836/missing --run automake-1.11"
+-S["AUTOCONF"]="${SHELL} /media/mmc2/build/xnu-deps-linux/cctools-836/missing --run autoconf"
+-S["ACLOCAL"]="${SHELL} /media/mmc2/build/xnu-deps-linux/cctools-836/missing --run aclocal-1.11"
++S["install_sh"]="${SHELL} /home/oaky/Projects/PocketDarwin/BuildHost/xnu-deps-linux/cctools-836/install-sh"
++S["MAKEINFO"]="${SHELL} /home/oaky/Projects/PocketDarwin/BuildHost/xnu-deps-linux/cctools-836/missing --run makeinfo"
++S["AUTOHEADER"]="${SHELL} /home/oaky/Projects/PocketDarwin/BuildHost/xnu-deps-linux/cctools-836/missing --run autoheader"
++S["AUTOMAKE"]="${SHELL} /home/oaky/Projects/PocketDarwin/BuildHost/xnu-deps-linux/cctools-836/missing --run automake-1.11"
++S["AUTOCONF"]="${SHELL} /home/oaky/Projects/PocketDarwin/BuildHost/xnu-deps-linux/cctools-836/missing --run autoconf"
++S["ACLOCAL"]="${SHELL} /home/oaky/Projects/PocketDarwin/BuildHost/xnu-deps-linux/cctools-836/missing --run aclocal-1.11"
+ S["VERSION"]="836"
+ S["PACKAGE"]="cctools"
+ S["CYGPATH_W"]="echo"
+@@ -1006,14 +1006,14 @@ S["target_os"]="darwin11"
+ S["target_vendor"]="apple"
+ S["target_cpu"]="arm"
+ S["target"]="arm-apple-darwin11"
+-S["host_os"]="linux-gnueabihf"
++S["host_os"]="linux-gnu"
+ S["host_vendor"]="unknown"
+-S["host_cpu"]="armv7l"
+-S["host"]="armv7l-unknown-linux-gnueabihf"
+-S["build_os"]="linux-gnueabihf"
++S["host_cpu"]="x86_64"
++S["host"]="x86_64-unknown-linux-gnu"
++S["build_os"]="linux-gnu"
+ S["build_vendor"]="unknown"
+-S["build_cpu"]="armv7l"
+-S["build"]="armv7l-unknown-linux-gnueabihf"
++S["build_cpu"]="x86_64"
++S["build"]="x86_64-unknown-linux-gnu"
+ S["target_alias"]="arm-apple-darwin11"
+ S["host_alias"]=""
+ S["build_alias"]=""
+@@ -1051,7 +1051,7 @@ S["PACKAGE_VERSION"]="836"
+ S["PACKAGE_TARNAME"]="cctools"
+ S["PACKAGE_NAME"]="cctools"
+ S["PATH_SEPARATOR"]=":"
+-S["SHELL"]="/bin/bash"
++S["SHELL"]="/bin/sh"
+ _ACAWK
+ cat >>"$ac_tmp/subs1.awk" <<_ACAWK &&
+   for (key in S) S_is_set[key] = 1
+diff --git a/cctools-836/ld64/src/ld/Makefile.in b/cctools-836/ld64/src/ld/Makefile.in
+index 0a2b874..afa9a53 100644
+--- a/cctools-836/ld64/src/ld/Makefile.in
++++ b/cctools-836/ld64/src/ld/Makefile.in
+@@ -295,6 +295,7 @@ ld_CXXFLAGS = \
+ 	-I$(top_srcdir)/ld64/src \
+ 	-I$(top_srcdir)/ld64/src/abstraction \
+ 	-I$(top_srcdir)/ld64/src/3rd \
++	-I$(top_srcdir)/ld64/src/3rd/BlocksRuntime \
+ 	-I$(top_srcdir)/ld64/src/ld \
+ 	-I$(top_srcdir)/ld64/src/ld/parsers \
+     -I$(top_srcdir)/ld64/src/ld/passes \
+diff --git a/cctools-836/ld64/src/ld/Options.cpp b/cctools-836/ld64/src/ld/Options.cpp
+index f19be19..98f0776 100644
+--- a/cctools-836/ld64/src/ld/Options.cpp
++++ b/cctools-836/ld64/src/ld/Options.cpp
+@@ -1658,7 +1658,7 @@ void Options::addSection(const char* segment, const char* section, const char* p
+ 	::close(fd);
+ 
+ 	// record section to create
+-	ExtraSection info = { segment, section, path, (uint8_t*)p, stat_buf.st_size };
++	ExtraSection info = { segment, section, path, (uint8_t*)p, (uint64_t)stat_buf.st_size };
+ 	fExtraSections.push_back(info);
+ }
+ 
+diff --git a/cctools-836/ld64/src/ld/code-sign-blobs/blob.h b/cctools-836/ld64/src/ld/code-sign-blobs/blob.h
+index a3a4af4..e9d44e1 100644
+--- a/cctools-836/ld64/src/ld/code-sign-blobs/blob.h
++++ b/cctools-836/ld64/src/ld/code-sign-blobs/blob.h
+@@ -110,6 +110,8 @@ public:
+ 	char *stringAt(Offset offset);
+ 	const char *stringAt(Offset offset) const;
+ 
++	BlobCore *clone() const { BlobCore *c = (BlobCore *)malloc(mLength); memcpy(c, this, mLength); return c; }
++
+ 	void *data()						{ return this; }
+ 	const void *data() const			{ return this; }
+ 	void length(size_t size)			{ mLength = size; }
+diff --git a/cctools-836/ld64/src/ld/code-sign-blobs/memutils.h b/cctools-836/ld64/src/ld/code-sign-blobs/memutils.h
+index 391ddc1..065a64a 100644
+--- a/cctools-836/ld64/src/ld/code-sign-blobs/memutils.h
++++ b/cctools-836/ld64/src/ld/code-sign-blobs/memutils.h
+@@ -31,6 +31,7 @@
+ //#include <security_utilities/utilities.h>
+ #include <sys/types.h>
+ #include <stdlib.h>
++#include <stddef.h>
+ #include <algorithm>
+ 
+ 
+@@ -51,7 +52,7 @@ static const size_t systemAlignment = 4;
+ // Get the local alignment for a type, as used by the acting compiler.
+ //
+ template <class T>
+-inline size_t alignof() { struct { char c; T t; } s; return sizeof(s) - sizeof(T); }
++inline size_t getAlignof() { struct { char c; T t; } s; return sizeof(s) - sizeof(T); }
+ 
+ 
+ //
+diff --git a/cctools-836/ld64/src/ld/parsers/macho_relocatable_file.cpp b/cctools-836/ld64/src/ld/parsers/macho_relocatable_file.cpp
+index 2c310fe..2c61009 100644
+--- a/cctools-836/ld64/src/ld/parsers/macho_relocatable_file.cpp
++++ b/cctools-836/ld64/src/ld/parsers/macho_relocatable_file.cpp
+@@ -3736,7 +3736,7 @@ bool CFISection<A>::needsRelocating()
+ 
+ template <>
+ void CFISection<x86_64>::cfiParse(class Parser<x86_64>& parser, uint8_t* buffer, 
+-									libunwind::CFI_Atom_Info<CFISection<x86_64>::OAS>::CFI_Atom_Info cfiArray[], 
++									libunwind::CFI_Atom_Info<CFISection<x86_64>::OAS> cfiArray[], 
+ 									uint32_t count)
+ {
+ 	// copy __eh_frame data to buffer
+@@ -3798,7 +3798,7 @@ void CFISection<x86_64>::cfiParse(class Parser<x86_64>& parser, uint8_t* buffer,
+ 
+ template <>
+ void CFISection<x86>::cfiParse(class Parser<x86>& parser, uint8_t* buffer, 
+-									libunwind::CFI_Atom_Info<CFISection<x86>::OAS>::CFI_Atom_Info cfiArray[], 
++									libunwind::CFI_Atom_Info<CFISection<x86>::OAS> cfiArray[], 
+ 									uint32_t count)
+ {
+ 	// create ObjectAddressSpace object for use by libunwind
+@@ -3818,7 +3818,7 @@ void CFISection<x86>::cfiParse(class Parser<x86>& parser, uint8_t* buffer,
+ 
+ template <>
+ void CFISection<arm>::cfiParse(class Parser<arm>& parser, uint8_t* buffer, 
+-									libunwind::CFI_Atom_Info<CFISection<arm>::OAS>::CFI_Atom_Info cfiArray[], 
++									libunwind::CFI_Atom_Info<CFISection<arm>::OAS> cfiArray[], 
+ 									uint32_t count)
+ {
+ 	// arm does not use zero cost exceptions
+diff --git a/cctools-836/ld64/src/ld/passes/branch_island.cpp b/cctools-836/ld64/src/ld/passes/branch_island.cpp
+index 96b6d35..36adb83 100644
+--- a/cctools-836/ld64/src/ld/passes/branch_island.cpp
++++ b/cctools-836/ld64/src/ld/passes/branch_island.cpp
+@@ -498,7 +498,7 @@ void doPass(const Options& opts, ld::Internal& state)
+ 				if ( target->section().type() == ld::Section::typeStub )
+ 					dstAddr = totalTextSize;
+ 				int64_t displacement = dstAddr - srcAddr;
+-				TargetAndOffset finalTargetAndOffset = { target, addend };
++				TargetAndOffset finalTargetAndOffset = { target, (uint32_t)addend };
+ 				const int64_t kBranchLimit = kBetweenRegions;
+ 				if ( displacement > kBranchLimit ) {
+ 					// create forward branch chain
+diff --git a/cctools-836/ld64/src/other/machochecker.cpp b/cctools-836/ld64/src/other/machochecker.cpp
+index 36a71fd..10d2cb0 100644
+--- a/cctools-836/ld64/src/other/machochecker.cpp
++++ b/cctools-836/ld64/src/other/machochecker.cpp
+@@ -488,7 +488,7 @@ void MachOChecker<A>::checkLoadCommands()
+ 				else {
+ 					throw "overlapping segment vm addresses";
+ 				}
+-				segmentAddressRanges.push_back(std::make_pair<pint_t, pint_t>(startAddr, endAddr));
++				segmentAddressRanges.push_back(std::make_pair(startAddr, endAddr));
+ 			}
+ 			// see if this overlaps another segment file offset range
+ 			uint64_t startOffset = segCmd->fileoff();
+@@ -505,7 +505,7 @@ void MachOChecker<A>::checkLoadCommands()
+ 				else {
+ 					throw "overlapping segment file data";
+ 				}
+-				segmentFileOffsetRanges.push_back(std::make_pair<pint_t, pint_t>(startOffset, endOffset));
++				segmentFileOffsetRanges.push_back(std::make_pair(startOffset, endOffset));
+ 				// check is within file bounds
+ 				if ( (startOffset > fLength) || (endOffset > fLength) )
+ 					throw "segment file data is past end of file";
+diff --git a/cctools-836/otool/arm_disasm.c b/cctools-836/otool/arm_disasm.c
+index a6eea8f..b18e991 100644
+--- a/cctools-836/otool/arm_disasm.c
++++ b/cctools-836/otool/arm_disasm.c
+@@ -154,7 +154,8 @@ struct disassemble_info { /* HACK'ed up for just what we need here */
+   LLVMDisasmContextRef thumb_dc;
+   char *object_addr;
+   uint32_t object_size;
+-} dis_info;
++};
++static struct disassemble_info dis_info;
+ 
+ /*
+  * GetOpInfo() is the operand information call back function.  This is called to
+diff --git a/cctools-836/otool/i386_disasm.c b/cctools-836/otool/i386_disasm.c
+index a1d2fc0..bebcc2d 100644
+--- a/cctools-836/otool/i386_disasm.c
++++ b/cctools-836/otool/i386_disasm.c
+@@ -1631,7 +1631,8 @@ struct disassemble_info {
+   LLVMDisasmContextRef x86_64_dc;
+   char *object_addr;
+   uint32_t object_size;
+-} dis_info;
++};
++static struct disassemble_info dis_info;
+ 
+ /*
+  * i386_disassemble()
+diff --git a/cctools-836/otool/print_objc.c b/cctools-836/otool/print_objc.c
+index dd4adc0..9098272 100644
+--- a/cctools-836/otool/print_objc.c
++++ b/cctools-836/otool/print_objc.c
+@@ -635,7 +635,7 @@ print_objc_class:
+ 			printf("\n");
+ 		    printf("\t\t      isa 0x%08x", objc_class.isa);
+ 
+-		    if(verbose && objc_getMetaClass(objc_class.name)){
++		    if(verbose && objc_getMetaClass((const char *)(uintptr_t)objc_class.name)){
+ 			p = get_pointer(objc_class.isa, &left, objc_sections,
+ 					nobjc_sections, &cstring_section);
+ 			if(p != NULL)
+@@ -674,9 +674,9 @@ print_objc_class:
+ 		    printf("\t\t     info 0x%08x",
+ 			   (unsigned int)objc_class.info);
+ 		    if(verbose){
+-			if(objc_getClass(objc_class.name))
++			if(objc_getClass((const char *)(uintptr_t)objc_class.name))
+ 			    printf(" CLS_CLASS\n");
+-			else if(objc_getMetaClass(objc_class.name))
++			else if(objc_getMetaClass((const char *)(uintptr_t)objc_class.name))
+ 			    printf(" CLS_META\n");
+ 			else
+ 			    printf("\n");
+@@ -766,7 +766,7 @@ print_objc_class:
+ 			host_byte_sex, swapped, verbose) == FALSE)
+ 			printf(" (not in an " SEG_OBJC " section)\n");
+ 
+-		    if(objc_getClass(objc_class.name)){
++		    if(objc_getClass((const char *)(uintptr_t)objc_class.name)){
+ 			printf("\tMeta Class");
+ 			if(get_objc_class((uint32_t)objc_class.isa,
+ 			     &objc_class, &trunc, objc_sections, nobjc_sections,
