@@ -1,0 +1,13 @@
+diff --git a/dtc-parser.y b/dtc-parser.y
+index 5e84a67..c65ab8b 100644
+--- a/dtc-parser.y
++++ b/dtc-parser.y
+@@ -24,7 +24,7 @@
+ #include "dtc.h"
+ #include "srcpos.h"
+ 
+-YYLTYPE yylloc;
++extern YYLTYPE yylloc;
+ 
+ extern int yylex(void);
+ extern void print_error(char const *fmt, ...);

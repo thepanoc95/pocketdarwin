@@ -23,7 +23,6 @@
 #define CPU_TYPE_ARM64    0x0100000c
 #define CPU_TYPE_ARM      12
 
-#define SEG_PAGEZERO    "__PAGEZERO"
 #define SEG_TEXT        "__TEXT"
 #define SEG_DATA        "__DATA"
 #define SEG_LINKEDIT    "__LINKEDIT"

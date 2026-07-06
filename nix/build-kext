@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# build-kext — Build AndroidPlatformDevice.kext (+ board driver modules).
+#
+# Usage:
+#   build-kext [--board <name>] [--board-dir <path>] [--jobs <n>]
+
+set -euo pipefail
+
+ROOTDIR="$(git rev-parse --show-toplevel 2>/dev/null || realpath "$(dirname "${BASH_SOURCE[0]}")/..")"
+BOARD="harpia"
+BOARD_DIR=""
+JOBS=""
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [options]
+
+Build AndroidPlatformDevice.kext.
+
+Options:
+  -b, --board <name>      Board name (default: harpia)
+  -d, --board-dir <path>  Board directory with Device.plist, .dts/.dtsi, .h
+  -j, --jobs <n>          Parallel build jobs (passed through to make)
+  -h, --help              Show this help
+EOF
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -b|--board) BOARD="$2"; shift 2 ;;
+        -d|--board-dir) BOARD_DIR="$(realpath "$2")"; shift 2 ;;
+        -j|--jobs) JOBS="-j$2"; shift 2 ;;
+        -h|--help) usage ;;
+        *) echo "Unknown option: $1"; usage ;;
+    esac
+done
+
+if [[ -n "$BOARD_DIR" ]]; then
+    if [[ "$BOARD" == "harpia" ]] && [[ "$(basename "$BOARD_DIR")" != "harpia" ]]; then
+        BOARD="$(basename "$BOARD_DIR")"
+    fi
+    PREPARE="$(dirname "${BASH_SOURCE[0]}")/prepare-board"
+    if [[ -x "$PREPARE" ]]; then
+        "$PREPARE" --board-dir "$BOARD_DIR" --board "$BOARD"
+    fi
+fi
+
+cd "$ROOTDIR"
+MAKE_ARGS="BOARD=$BOARD"
+[[ -n "$JOBS" ]] && MAKE_ARGS="$MAKE_ARGS $JOBS"
+
+echo "Building kext for board: $BOARD"
+make -C drivers $MAKE_ARGS
+
+echo ""
+echo "Kext built: $ROOTDIR/build/drivers/AndroidPlatformDevice.kext"

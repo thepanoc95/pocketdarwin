@@ -1,5 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
+#include <stdio.h>
 #include "XNUKernelMachO.hpp"
 
 #define MAX_KERNEL_SIZE 0x10000000
@@ -60,9 +62,9 @@ extern void xnu_kernel_entry(uint64_t entry, uint64_t x0, uint64_t x1, uint64_t 
 #pragma mark Memory management state
 
 static uint64_t tt_l0[512] __attribute__((aligned(4096)));
-static uint64_t tt_l1[512] __attribute__((aligned(4096)));
-static uint64_t tt_l2[512] __attribute__((aligned(4096)));
-static uint64_t tt_l3[512] __attribute__((aligned(4096)));
+static uint64_t tt_l1[512] __attribute__((aligned(4096))) __attribute__((unused));
+static uint64_t tt_l2[512] __attribute__((aligned(4096))) __attribute__((unused));
+static uint64_t tt_l3[512] __attribute__((aligned(4096))) __attribute__((unused));
 
 static volatile uint64_t page_table_pool[4096] __attribute__((aligned(4096)));
 static volatile uint32_t page_table_pool_used = 0;
@@ -173,7 +175,8 @@ static void map_range(uint64_t virt, uint64_t phys, uint64_t size, uint64_t attr
 #pragma mark Initial page table setup
 
 static void setup_boot_page_tables(uint64_t kernel_phys_base, uint64_t kernel_virt_base,
-                                    uint64_t kernel_size, uint64_t dtb_phys, uint64_t dtb_size)
+                                    uint64_t kernel_size __attribute__((unused)),
+                                    uint64_t dtb_phys, uint64_t dtb_size)
 {
     for (int i = 0; i < 512; i++)
         tt_l0[i] = 0;
@@ -185,8 +188,8 @@ static void setup_boot_page_tables(uint64_t kernel_phys_base, uint64_t kernel_vi
     mair |= (0x04ULL << 32);  /* Attr4: Device-nGnRE */
     write_mair(mair);
 
-    uint64_t tcr = (0x00 << 37) |  /* IPS: 32-bit PA (0=32/4GB) */
-                   (0x00 << 32) |  /* TG0: 4KB */
+    uint64_t tcr = (0x00ULL << 37) |  /* IPS: 32-bit PA (0=32/4GB) */
+                   (0x00ULL << 32) |  /* TG0: 4KB */
                    (0x00 << 30) |  /* SH0: Non-shareable */
                    (0x03 << 28) |  /* ORGN0: Normal memory, Outer Write-Back */
                    (0x03 << 26) |  /* IRGN0: Normal memory, Inner Write-Back */
@@ -223,7 +226,7 @@ static void enable_mmu(void) {
     isb();
 }
 
-static void disable_mmu(void) {
+static void __attribute__((unused)) disable_mmu(void) {
     uint64_t sctlr = read_sctlr();
     sctlr &= ~(1 << 0);
     write_sctlr(sctlr);
@@ -274,13 +277,6 @@ static int load_segments(const uint8_t* kernel_base, struct XNUKernelInfo* info,
 }
 
 #pragma mark Main entry point
-
-static void* vml_memcpy(void* dst, const void* src, size_t n) {
-    const uint8_t* s = (const uint8_t*)src;
-    uint8_t* d = (uint8_t*)dst;
-    for (size_t i = 0; i < n; i++) d[i] = s[i];
-    return dst;
-}
 
 void vml_load_and_boot(const uint8_t* kernel_data, size_t kernel_size,
                         uint64_t dtb_phys, uint64_t dtb_size,
@@ -333,7 +329,7 @@ void vml_load_and_boot(const uint8_t* kernel_data, size_t kernel_size,
     tlbi_all();
 
     struct xnu_boot_args boot_args;
-    vml_memcpy(&boot_args, 0, sizeof(boot_args));
+    memset(&boot_args, 0, sizeof(boot_args));
     boot_args.revision = XNU_BOOT_ARGS_REVISION;
     boot_args.flags = dtb_phys ? XNU_BOOT_FLAG_DTB_AT_LOCAL : 0;
     boot_args.phys_mem_base = phys_mem_base;

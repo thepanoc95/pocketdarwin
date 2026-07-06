@@ -15,21 +15,9 @@
 #include "msm8916.dtsi"
 #include "msm8916-memory.dtsi"
 #include "msm8916-pinctrl.dtsi"
-/* ADT boot-minimal: the following three are not needed to reach a
- * console/shell, and two of them are not present in the kernel tree
- * snapshot this patch was written against -- pulling them in as-is
- * will fail the cpp preprocessing pass before dtc ever sees the file:
- *   - dsi-panel-mot-dummy-qhd-video.dtsi : display panel, no ADT consumer yet
- *   - carrier-channel-ids.dtsi           : not present; modem/RF carrier config
- *   - moto-mem-reserve.h                 : not present; supplies the
- *       TZLOG_BCK_*/WDOG_CPUCTX_* macros consumed below, which are
- *       Linux-side crash-log/watchdog debug carveouts XNU has no use
- *       for. The two memory nodes that depended on them have been
- *       removed rather than left with undefined macros.
- * #include "dsi-panel-mot-dummy-qhd-video.dtsi"
- * #include "carrier-channel-ids.dtsi"
- * #include <moto-mem-reserve.h>
- */
+#include "dsi-panel-mot-dummy-qhd-video.dtsi"
+#include "carrier-channel-ids.dtsi"
+#include <moto-mem-reserve.h>
 
 / {
 	cpus {
@@ -86,12 +74,25 @@
 		i2c1 = &i2c_1;
 	};
 
-	/* ADT boot-minimal: tzlog_bck_mem / wdog_cpuctx_mem removed --
-	 * both depended on macros from the now-excluded
-	 * moto-mem-reserve.h, and both are Linux-side debug carveouts
-	 * (TrustZone crash log, watchdog CPU-context dump) with no XNU
-	 * equivalent consumer.
-	 */
+	memory {
+		tzlog_bck_mem: tzlog_bck_region {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 TZLOG_BCK_BASE_8916
+				0x0 TZLOG_BCK_SIZE>;
+			label = "tzlog_bck_mem";
+		};
+
+		wdog_cpuctx_mem: wdog_cpuctx_region {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 WDOG_CPUCTX_BASE_8916
+				0x0 WDOG_CPUCTX_SIZE_8916>;
+			label = "wdog_cpuctx_mem";
+		};
+	};
 	utags {
 		compatible = "mmi,utags";
 		mmi,main-utags = "/dev/block/bootdevice/by-name/utags";

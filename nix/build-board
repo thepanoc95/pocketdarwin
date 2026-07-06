@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# build-board — Build PocketDarwin OS for a target board.
+#
+# Builds the XNU kernel, kernel loader, device tree, IOKit drivers,
+# and packages everything into an Android boot.img.
+#
+# Usage:
+#   build-board [options]
+#
+# Options:
+#   -b, --board <name>      Board name (default: harpia)
+#   -d, --board-dir <path>  Board definition directory with Device.plist,
+#                            .dts/.dtsi, and .h files
+#   -c, --config <cfg>      Kernel config: RELEASE, DEVELOP, DEBUG
+#   -j, --jobs <n>          Parallel build jobs
+#   -f, --flash             Flash via fastboot after build
+#   -v, --verbose           Verbose build output
+#   -h, --help              Show this help
+
+set -euo pipefail
+
+ROOTDIR="$(git rev-parse --show-toplevel 2>/dev/null || realpath "$(dirname "${BASH_SOURCE[0]}")/..")"
+
+BOARD="harpia"
+BOARD_DIR=""
+CONFIG="RELEASE"
+JOBS=""
+FLASH=0
+VERBOSE=""
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [options]
+
+Build PocketDarwin OS for a target board.
+
+Options:
+  -b, --board <name>      Board name (default: harpia)
+  -d, --board-dir <path>  Board definition directory containing
+                           Device.plist, .dts/.dtsi, .h files
+  -c, --config <cfg>      Kernel config: RELEASE, DEVELOP, DEBUG
+  -j, --jobs <n>          Parallel build jobs
+  -f, --flash             Flash via fastboot after build
+  -v, --verbose           Verbose build output
+  -h, --help              Show this help
+
+If --board-dir is provided, the board definition files are staged into
+the devicetree/ tree and the build uses that board name.
+EOF
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -b|--board) BOARD="$2"; shift 2 ;;
+        -d|--board-dir) BOARD_DIR="$(realpath "$2")"; shift 2 ;;
+        -c|--config) CONFIG="$2"; shift 2 ;;
+        -j|--jobs) JOBS="-j$2"; shift 2 ;;
+        -f|--flash) FLASH=1; shift ;;
+        -v|--verbose) VERBOSE="V=1"; shift ;;
+        -h|--help) usage ;;
+        *) echo "Unknown option: $1"; usage ;;
+    esac
+done
+
+# Prepare board directory if provided
+if [[ -n "$BOARD_DIR" ]]; then
+    if [[ ! -d "$BOARD_DIR" ]]; then
+        echo "Error: Board directory not found: $BOARD_DIR"
+        exit 1
+    fi
+
+    # Derive board name from directory if still at default
+    if [[ "$BOARD" == "harpia" ]] && [[ "$(basename "$BOARD_DIR")" != "harpia" ]]; then
+        BOARD="$(basename "$BOARD_DIR")"
+    fi
+
+    # Run prepare-board
+    PREPARE="$(dirname "${BASH_SOURCE[0]}")/prepare-board"
+    if [[ -x "$PREPARE" ]]; then
+        "$PREPARE" --board-dir "$BOARD_DIR" --board "$BOARD"
+    fi
+fi
+
+echo ""
+echo "============================================"
+echo " Building PocketDarwin for: $BOARD"
+echo " Config:                   $CONFIG"
+echo " Board dir:                ${BOARD_DIR:-(built-in)}"
+echo "============================================"
+echo ""
+
+cd "$ROOTDIR"
+
+MAKE_ARGS="BOARD=$BOARD KERNEL_CONFIG=$CONFIG"
+[[ -n "$JOBS" ]] && MAKE_ARGS="$MAKE_ARGS $JOBS"
+[[ -n "$VERBOSE" ]] && MAKE_ARGS="$MAKE_ARGS $VERBOSE"
+
+# Step 1: Build kernel
+echo "--- Step 1/5: Kernel ---"
+make $MAKE_ARGS kernel
+echo ""
+
+# Step 2: Build kernel loader
+echo "--- Step 2/5: Kernel Loader ---"
+make $MAKE_ARGS kernldr
+echo ""
+
+# Step 3: Build device tree
+echo "--- Step 3/5: Device Tree ---"
+make $MAKE_ARGS dtbs
+echo ""
+
+# Step 4: Build drivers
+echo "--- Step 4/5: IOKit Drivers ---"
+make $MAKE_ARGS drivers
+echo ""
+
+# Step 5: Package boot image
+echo "--- Step 5/5: Boot Image ---"
+make $MAKE_ARGS bootimg
+echo ""
+
+echo "============================================"
+echo " Build complete for $BOARD"
+BOOTIMG="$ROOTDIR/build/boot.img"
+if [[ -f "$BOOTIMG" ]]; then
+    echo " Boot image: $BOOTIMG"
+    ls -lh "$BOOTIMG"
+fi
+echo "============================================"
+
+# Flash if requested
+if [[ "$FLASH" -eq 1 ]]; then
+    echo ""
+    echo "--- Flashing via fastboot ---"
+    make $MAKE_ARGS flash
+fi

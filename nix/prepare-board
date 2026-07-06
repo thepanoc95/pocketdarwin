@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# prepare-board — Set up board definition files from a board directory.
+#
+# Copies/symlinks Device.plist, .dts/.dtsi, and .h files from a board
+# directory into the project's devicetree/<board>/ layout, then optionally
+# generates a main.dts entry point.
+#
+# Usage:
+#   prepare-board --board-dir <path> [--board <name>]
+#
+# The board directory may contain:
+#   Device.plist   Apple DeviceTree property list (hardware description)
+#   *.dts / *.dtsi Device tree source files
+#   *.h            Board-specific C headers
+
+set -euo pipefail
+
+ROOTDIR="$(git rev-parse --show-toplevel 2>/dev/null || realpath "$(dirname "${BASH_SOURCE[0]}")/..")"
+BOARD=""
+BOARD_DIR=""
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") --board-dir <path> [--board <name>]
+
+Options:
+  -d, --board-dir <path>  Path to board definition directory (required)
+  -b, --board <name>      Board name (default: basename of board-dir)
+  -h, --help              Show this help
+EOF
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -d|--board-dir) BOARD_DIR="$(realpath "$2")"; shift 2 ;;
+        -b|--board) BOARD="$2"; shift 2 ;;
+        -h|--help) usage ;;
+        *) echo "Unknown option: $1"; usage ;;
+    esac
+done
+
+if [[ -z "$BOARD_DIR" ]]; then
+    echo "Error: --board-dir is required"
+    usage
+fi
+
+if [[ ! -d "$BOARD_DIR" ]]; then
+    echo "Error: Board directory not found: $BOARD_DIR"
+    exit 1
+fi
+
+# Derive board name from directory basename if not given
+if [[ -z "$BOARD" ]]; then
+    BOARD="$(basename "$BOARD_DIR")"
+fi
+
+BOARD_DTS_DIR="$ROOTDIR/devicetree/$BOARD"
+mkdir -p "$BOARD_DTS_DIR"
+
+echo "Preparing board: $BOARD"
+echo "  source: $BOARD_DIR"
+echo "  dest:   $BOARD_DTS_DIR"
+
+# Copy Device.plist if present
+if [[ -f "$BOARD_DIR/Device.plist" ]]; then
+    cp "$BOARD_DIR/Device.plist" "$BOARD_DTS_DIR/"
+    echo "  Device.plist: copied"
+fi
+
+# Copy .dts and .dtsi files
+dts_files=0
+for f in "$BOARD_DIR"/*.dts "$BOARD_DIR"/*.dtsi; do
+    [[ -f "$f" ]] || continue
+    cp "$f" "$BOARD_DTS_DIR/"
+    echo "  $(basename "$f"): copied"
+    dts_files=$((dts_files + 1))
+done
+
+# Copy .h files
+h_files=0
+for f in "$BOARD_DIR"/*.h; do
+    [[ -f "$f" ]] || continue
+    cp "$f" "$BOARD_DTS_DIR/"
+    echo "  $(basename "$f"): copied"
+    h_files=$((h_files + 1))
+done
+
+# Generate main.dts if one doesn't exist but .dtsi sources do
+if [[ ! -f "$BOARD_DTS_DIR/main.dts" ]] && [[ "$dts_files" -gt 0 ]]; then
+    echo "  Creating main.dts from board DTS sources..."
+    {
+        echo "/dts-v1/;"
+        echo ""
+        for f in "$BOARD_DIR"/*.dtsi; do
+            [[ -f "$f" ]] || continue
+            echo "#include \"$(basename "$f")\""
+        done
+        echo ""
+    } > "$BOARD_DTS_DIR/main.dts"
+    echo "  main.dts: generated with $dts_files includes"
+fi
+
+# Copy headers to drivers board dir so driver code can use them
+BOARD_H_DIR="$ROOTDIR/drivers/$BOARD"
+if [[ "$h_files" -gt 0 ]]; then
+    mkdir -p "$BOARD_H_DIR"
+    for f in "$BOARD_DIR"/*.h; do
+        [[ -f "$f" ]] || continue
+        cp "$f" "$BOARD_H_DIR/"
+    done
+    echo "  headers: also copied to drivers/$BOARD/"
+fi
+
+echo "Board '$BOARD' prepared."

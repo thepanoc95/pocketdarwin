@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define SEG_PAGEZERO    "__PAGEZERO"
+
 #define MAX_KERNEL_SEGMENTS 16
 #define MAX_KERNEL_SECTIONS 64
 
@@ -36,10 +38,10 @@ struct XNUKernelInfo {
     uint32_t    ncmds;
 
     int         num_segments;
-    XNUSegment  segments[MAX_KERNEL_SEGMENTS];
+    struct XNUSegment  segments[MAX_KERNEL_SEGMENTS];
 
     int         num_sections;
-    XNUSection  sections[MAX_KERNEL_SECTIONS];
+    struct XNUSection  sections[MAX_KERNEL_SECTIONS];
 
     uint64_t    text_base;
     uint64_t    data_base;
