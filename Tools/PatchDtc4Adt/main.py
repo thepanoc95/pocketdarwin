@@ -761,6 +761,445 @@ def preprocess_dts(
 
 
 # ---------------------------------------------------------------------------
+# Native Python #include / #define expander
+# ---------------------------------------------------------------------------
+# The old dtc-AppleDeviceTree fork doesn't support `#include` or any cpp
+# directives in its DTS input.  We could shell out to gcc/cpp, but that
+# produces output with cpp line markers (which the fork's lexer chokes
+# on) and adds an external dependency.
+#
+# This native expander does the minimum needed for DTS preprocessing:
+#   * `#include "file"` and `#include <file>` — recursive, with cycle
+#     detection and proper search-path resolution
+#   * `#define NAME value` — object-like macros only (no function-like
+#     macros, since DTS doesn't use them)
+#   * `#undef NAME`
+#   * `#ifdef NAME` / `#ifndef NAME` / `#else` / `#endif`
+#   * `#if 0` / `#if 1` — literal-constant guards (very common in
+#     dt-bindings headers).  We do NOT support `#if <expr>`.
+#   * `#elif` — only as a literal-constant check
+#   * Line continuation with backslash (`\\` at end of line)
+#   * `/* */` and `//` comments are stripped during macro expansion to
+#     avoid splitting tokens
+#
+# The output is a single self-contained .dts file with all directives
+# removed and all `#include`s inlined.  The old dtc fork can compile
+# this directly.
+
+_DEFINE_RE = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z0-9_]*)\s*(.*?)\s*$")
+_UNDEF_RE = re.compile(r"^\s*#\s*undef\s+([A-Za-z_][A-Za-z0-9_]*)\s*$")
+_INCLUDE_RE = re.compile(r'^\s*#\s*include\s*([<"])([^>"]+)[>"]\s*$')
+_IFDEF_RE = re.compile(r"^\s*#\s*ifdef\s+([A-Za-z_][A-Za-z0-9_]*)\s*$")
+_IFNDEF_RE = re.compile(r"^\s*#\s*ifndef\s+([A-Za-z_][A-Za-z0-9_]*)\s*$")
+_IF_RE = re.compile(r"^\s*#\s*if\s+(.*?)\s*$")
+_ELIF_RE = re.compile(r"^\s*#\s*elif\s+(.*?)\s*$")
+_ELSE_RE = re.compile(r"^\s*#\s*else\s*$")
+_ENDIF_RE = re.compile(r"^\s*#\s*endif\s*$")
+# Strip cpp line markers like `# 12 "foo.h" 3`
+_LINE_MARKER_RE = re.compile(r'^\s*#\s+\d+\s+"[^"]*".*$')
+
+
+class IncludeError(Exception):
+    """Raised when an #include can't be resolved or a directive is malformed."""
+
+
+def _strip_comments(text: str) -> str:
+    """Remove /* */ and // comments.  Doesn't touch strings."""
+    out = []
+    i = 0
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == "/" and i + 1 < n and text[i + 1] == "/":
+            # line comment
+            end = text.find("\n", i)
+            if end < 0:
+                end = n
+            i = end
+        elif c == "/" and i + 1 < n and text[i + 1] == "*":
+            # block comment — preserve as a single space to keep tokens
+            # from merging.  But for DTS we want the comment gone
+            # entirely.
+            end = text.find("*/", i + 2)
+            if end < 0:
+                i = n
+            else:
+                i = end + 2
+        elif c == '"':
+            # string literal — copy verbatim
+            out.append(c)
+            i += 1
+            while i < n:
+                ch = text[i]
+                out.append(ch)
+                if ch == "\\" and i + 1 < n:
+                    out.append(text[i + 1])
+                    i += 2
+                    continue
+                if ch == '"':
+                    i += 1
+                    break
+                i += 1
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
+def _resolve_include(
+    target: str,
+    is_system: bool,
+    current_file: Path,
+    include_dirs: List[Path],
+) -> Path:
+    """Find the absolute path of an #include target.
+
+    Args:
+        target: The filename inside the <> or "".
+        is_system: True if `<...>` was used, False if `"..."` was used.
+        current_file: The file containing the #include (for ""-style
+            relative resolution).
+        include_dirs: The -I search paths.
+
+    Returns the resolved Path, or raises IncludeError.
+    """
+    # For "..." includes, first look in the directory of the current file.
+    if not is_system and current_file is not None:
+        candidate = (current_file.parent / target).resolve()
+        if candidate.is_file():
+            return candidate
+    # Then look in each -I directory.
+    for d in include_dirs:
+        candidate = (d / target).resolve()
+        if candidate.is_file():
+            return candidate
+    # Also try relative to cwd as a last resort.
+    candidate = Path(target).resolve()
+    if candidate.is_file():
+        return candidate
+    kind = "system" if is_system else "local"
+    raise IncludeError(
+        f"cannot find {kind} #include {target!r} (searched: "
+        f"{current_file.parent if current_file else '<cwd>'}, "
+        f"{', '.join(str(d) for d in include_dirs)})"
+    )
+
+
+def _eval_literal_condition(expr: str) -> Optional[bool]:
+    """Evaluate a `#if`/`#elif` expression that's a literal constant.
+
+    Returns True/False if the expression is a literal `0` or `1` (or
+    `defined(NAME)` for already-resolved macros), or None if we can't
+    evaluate it (in which case the caller should fall back to "skip
+    this branch and try #elif / #else").
+    """
+    expr = expr.strip()
+    # Strip surrounding parens.
+    while expr.startswith("(") and expr.endswith(")"):
+        expr = expr[1:-1].strip()
+    if expr == "1":
+        return True
+    if expr == "0":
+        return False
+    # `defined(NAME)` is handled by the caller (which has the macro
+    # table); return None so the caller falls back.
+    return None
+
+
+def _expand_macros_in_line(line: str, macros: dict) -> str:
+    """Replace bare macro-name tokens in `line` with their values.
+
+    This is a simple word-boundary substitution.  It does NOT handle:
+      * function-like macros (DTS doesn't use them)
+      * string literal contents (macro names inside strings are left alone)
+      * recursive expansion (a macro value containing another macro name
+        is expanded only once)
+    """
+    if not macros:
+        return line
+    # Tokenise: we want to substitute whole-word identifiers but not
+    # inside string literals.  We'll walk char-by-char.
+    out = []
+    i = 0
+    n = len(line)
+    while i < n:
+        c = line[i]
+        if c == '"':
+            # Copy string literal verbatim.
+            out.append(c)
+            i += 1
+            while i < n:
+                ch = line[i]
+                out.append(ch)
+                if ch == "\\" and i + 1 < n:
+                    out.append(line[i + 1])
+                    i += 2
+                    continue
+                if ch == '"':
+                    i += 1
+                    break
+                i += 1
+            continue
+        if c.isalpha() or c == "_":
+            # Read identifier.
+            j = i
+            while j < n and (line[j].isalnum() or line[j] == "_"):
+                j += 1
+            ident = line[i:j]
+            if ident in macros:
+                out.append(str(macros[ident]))
+            else:
+                out.append(ident)
+            i = j
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def _expand_includes_native(
+    input_path: Path,
+    include_dirs: List[Path],
+    predefines: dict,
+    preundefs: set,
+    include_stack: Optional[List[Path]] = None,
+    macros: Optional[dict] = None,
+    verbose: bool = False,
+) -> str:
+    """Recursively expand #include / #define / #ifdef in input_path.
+
+    Returns the fully-expanded text with all cpp directives removed.
+
+    Args:
+        input_path: The file to process.
+        include_dirs: -I search paths.
+        predefines: Macro name -> value dict, seeded from -D args.
+        preundefs: Set of macro names to consider undefined (from -U args).
+        include_stack: Stack of files currently being #included (for
+            cycle detection).  Should be None on the top-level call.
+        macros: Current macro table.  Should be None on the top-level
+            call (will be initialised from predefines).
+        verbose: If True, print each #include as it's resolved.
+    """
+    if include_stack is None:
+        include_stack = []
+    if macros is None:
+        macros = dict(predefines)
+        # Apply preundefs.
+        for u in preundefs:
+            macros.pop(u, None)
+
+    # Cycle detection.
+    rp = input_path.resolve()
+    if rp in include_stack:
+        raise IncludeError(f"circular #include: {input_path} (stack: {' -> '.join(str(p) for p in include_stack)})")
+    include_stack = include_stack + [rp]
+
+    if verbose:
+        sys.stderr.write(f"  [expand] {input_path}\n")
+
+    text = input_path.read_text()
+    # Join line continuations (backslash + newline).
+    text = re.sub(r"\\\n", "", text)
+    # Strip block comments — they can span lines and confuse the
+    # line-based directive parser below.
+    text = _strip_comments(text)
+
+    lines = text.splitlines(keepends=False)
+    output_lines: List[str] = []
+
+    # Conditional-compilation state stack.  Each entry is a tuple:
+    #   (parent_active, this_branch_taken, any_branch_taken_so_far)
+    # `parent_active` = whether the enclosing #if context is active.
+    # `this_branch_active` = whether this particular branch (the current
+    #   #if/#elif/#else arm) is active.
+    # `any_taken` = whether any branch in this #if/#elif/#else chain has
+    #   been taken so far (so subsequent #elif arms are skipped).
+    cond_stack: List[tuple] = []
+    # The top of the stack describes the current conditional context.
+    # We're "active" if the stack is empty OR all parent contexts are
+    # active AND the current branch is active.
+
+    def _currently_active() -> bool:
+        if not cond_stack:
+            return True
+        return all(parent and branch for parent, branch, _ in cond_stack)
+
+    for raw_line in lines:
+        line = raw_line.rstrip()
+
+        # Strip cpp line markers (gcc emits these; we don't want them).
+        if _LINE_MARKER_RE.match(line):
+            continue
+
+        # --- Directive parsing --------------------------------------
+        m = _INCLUDE_RE.match(line)
+        if m and _currently_active():
+            is_sys = (m.group(1) == "<")
+            target = m.group(2)
+            try:
+                inc_path = _resolve_include(target, is_sys, input_path, include_dirs)
+            except IncludeError as e:
+                raise IncludeError(f"{input_path}: {e}") from e
+            # Recurse.
+            expanded = _expand_includes_native(
+                inc_path,
+                include_dirs,
+                predefines,
+                preundefs,
+                include_stack=include_stack,
+                macros=macros,  # share the macro table
+                verbose=verbose,
+            )
+            output_lines.append(f"/* === begin #include {target} (from {input_path.name}) === */")
+            output_lines.append(expanded)
+            output_lines.append(f"/* === end #include {target} === */")
+            continue
+
+        m = _DEFINE_RE.match(line)
+        if m and _currently_active():
+            name = m.group(1)
+            value = m.group(2).strip()
+            # The value can reference other macros — expand them now.
+            value = _expand_macros_in_line(value, macros)
+            macros[name] = value
+            # Don't emit the #define line.
+            continue
+
+        m = _UNDEF_RE.match(line)
+        if m and _currently_active():
+            name = m.group(1)
+            macros.pop(name, None)
+            continue
+
+        m = _IFDEF_RE.match(line)
+        if m:
+            name = m.group(1)
+            parent_active = _currently_active()
+            this_branch = parent_active and (name in macros) and (name not in preundefs)
+            cond_stack.append((parent_active, this_branch, this_branch))
+            continue
+
+        m = _IFNDEF_RE.match(line)
+        if m:
+            name = m.group(1)
+            parent_active = _currently_active()
+            this_branch = parent_active and not ((name in macros) and (name not in preundefs))
+            cond_stack.append((parent_active, this_branch, this_branch))
+            continue
+
+        m = _IF_RE.match(line)
+        if m:
+            expr = m.group(1)
+            parent_active = _currently_active()
+            # Try `defined(NAME)` form first.
+            defined_match = re.fullmatch(r"defined\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)", expr.strip())
+            if defined_match:
+                name = defined_match.group(1)
+                this_branch = parent_active and (name in macros) and (name not in preundefs)
+            else:
+                # Expand macros in the expression, then try to eval as literal.
+                expanded_expr = _expand_macros_in_line(expr, macros)
+                literal_val = _eval_literal_condition(expanded_expr)
+                if literal_val is None:
+                    # Can't evaluate — be conservative and skip this
+                    # branch (so #else / #elif can still fire).
+                    this_branch = False
+                else:
+                    this_branch = parent_active and literal_val
+            cond_stack.append((parent_active, this_branch, this_branch))
+            continue
+
+        m = _ELIF_RE.match(line)
+        if m:
+            if not cond_stack:
+                raise IncludeError(f"{input_path}: #elif without matching #if")
+            parent_active, _, any_taken = cond_stack[-1]
+            expr = m.group(1)
+            defined_match = re.fullmatch(r"defined\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)", expr.strip())
+            if defined_match:
+                name = defined_match.group(1)
+                cond_val = (name in macros) and (name not in preundefs)
+            else:
+                expanded_expr = _expand_macros_in_line(expr, macros)
+                literal_val = _eval_literal_condition(expanded_expr)
+                cond_val = literal_val if literal_val is not None else False
+            this_branch = parent_active and (not any_taken) and cond_val
+            cond_stack[-1] = (parent_active, this_branch, any_taken or this_branch)
+            continue
+
+        m = _ELSE_RE.match(line)
+        if m:
+            if not cond_stack:
+                raise IncludeError(f"{input_path}: #else without matching #if")
+            parent_active, _, any_taken = cond_stack[-1]
+            this_branch = parent_active and (not any_taken)
+            cond_stack[-1] = (parent_active, this_branch, any_taken or this_branch)
+            continue
+
+        m = _ENDIF_RE.match(line)
+        if m:
+            if not cond_stack:
+                raise IncludeError(f"{input_path}: #endif without matching #if")
+            cond_stack.pop()
+            continue
+
+        # --- Regular content line -----------------------------------
+        # If we're in an inactive conditional branch, drop the line.
+        if not _currently_active():
+            continue
+
+        # Expand macros in the line (so `GCC_UART0_CLK` becomes `0`, etc.).
+        expanded_line = _expand_macros_in_line(line, macros)
+        output_lines.append(expanded_line)
+
+    if cond_stack:
+        raise IncludeError(f"{input_path}: unterminated #if/#ifdef/#ifndef (missing #endif)")
+
+    return "\n".join(output_lines) + "\n"
+
+
+def preprocess_dts_native(
+    input_path: Path,
+    output_path: Path,
+    include_dirs: List[Path],
+    defines: List[str],
+    undefs: List[str],
+    verbose: bool = False,
+) -> None:
+    """Expand #include / #define / #ifdef natively (no gcc/cpp needed).
+
+    Writes the result to output_path as a single self-contained .dts
+    file with all directives removed.
+    """
+    # Parse -D flags into a {name: value} dict.
+    predefines: dict = {}
+    for d in defines:
+        if "=" in d:
+            name, value = d.split("=", 1)
+            predefines[name.strip()] = value.strip()
+        else:
+            predefines[d.strip()] = "1"
+
+    preundefs = set(u.strip() for u in undefs)
+
+    try:
+        expanded = _expand_includes_native(
+            input_path,
+            include_dirs,
+            predefines,
+            preundefs,
+            verbose=verbose,
+        )
+    except IncludeError as e:
+        sys.stderr.write(f"native #include expansion failed: {e}\n")
+        sys.exit(1)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(expanded)
+
+
+# ---------------------------------------------------------------------------
 # dtc-AppleDeviceTree invocation
 # ---------------------------------------------------------------------------
 
@@ -1005,9 +1444,16 @@ def build_argparser() -> argparse.ArgumentParser:
                    dest="undefs", metavar="SYM",
                    help="Undefine a cpp symbol (repeatable)")
     p.add_argument("--cpp", default="gcc", metavar="PATH",
-                   help="C preprocessor to invoke (default: gcc)")
-    p.add_argument("--no-cpp", action="store_true",
-                   help="Skip cpp; input is already preprocessed")
+                   help="External C preprocessor to invoke when --use-cpp is given "
+                        "(default: gcc)")
+    g_pp = p.add_mutually_exclusive_group()
+    g_pp.add_argument("--use-cpp", action="store_true", dest="use_cpp",
+                      help="Use the external C preprocessor (gcc/cpp) instead of the "
+                           "native Python #include expander.  gcc/cpp is more complete "
+                           "but emits line markers that confuse the old dtc fork.")
+    g_pp.add_argument("--no-cpp", action="store_true",
+                      help="Skip preprocessing entirely; input is already self-contained "
+                           "(no #include, no #define, no #ifdef).")
 
     # --- Output target flags -----------------------------------------
     g_out = p.add_argument_group("Output targets")
@@ -1102,6 +1548,10 @@ def process_one(
         sys.stderr.write(f"--- processing {input_path}\n")
 
     # 1. Preprocess if needed.
+    #    Default: use the native Python #include expander (no gcc/cpp
+    #    needed, no line markers in output, works on the old dtc fork).
+    #    --use-cpp: shell out to gcc/cpp instead.
+    #    --no-cpp: skip preprocessing entirely.
     if args.no_cpp:
         pre_path = input_path
         cpp_invoked = False
@@ -1112,14 +1562,24 @@ def process_one(
         if args.dry_run:
             pre_path = Path("/tmp") / (input_path.stem + ".preprocessed.dts")
         all_includes = list(args.include_dirs) + list(extra_include_dirs or [])
-        preprocess_dts(
-            input_path,
-            pre_path,
-            all_includes,
-            args.defines,
-            args.undefs,
-            cpp_cmd=args.cpp,
-        )
+        if args.use_cpp:
+            preprocess_dts(
+                input_path,
+                pre_path,
+                all_includes,
+                args.defines,
+                args.undefs,
+                cpp_cmd=args.cpp,
+            )
+        else:
+            preprocess_dts_native(
+                input_path,
+                pre_path,
+                all_includes,
+                args.defines,
+                args.undefs,
+                verbose=args.verbose,
+            )
         cpp_invoked = True
 
     src = pre_path.read_text()

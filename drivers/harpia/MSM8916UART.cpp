@@ -64,7 +64,7 @@
 #define UART_DM_RXFS_BURST_ENA   (1U << 7)
 
 enum MSM8916UartBaud {
-    kUartBaud115200  = 115200,
+    kUartBaud115200  = 115200, // default baud rate
     kUartBaud230400  = 230400,
     kUartBaud921600  = 921600,
     kUartBaud1000000 = 1000000,
