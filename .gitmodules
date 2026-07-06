@@ -24,3 +24,12 @@
 [submodule "BuildHost/apple-libtapi"]
 	path = BuildHost/apple-libtapi
 	url = https://github.com/tpoechtrager/apple-libtapi.git
+[submodule "BuildHost/xnu-deps-linux"]
+	path = BuildHost/xnu-deps-linux
+	url = https://github.com/b-man/xnu-deps-linux
+[submodule "CoreOSMakefiles"]
+	path = CoreOSMakefiles
+	url = https://github.com/Darm64/CoreOSMakefiles
+[submodule "Tools/dtc2adt"]
+	path = Tools/dtc2adt
+	url = https://github.com/darwin-on-arm/dtc-AppleDeviceTree
