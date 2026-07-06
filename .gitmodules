@@ -12,3 +12,15 @@
 	path = libc
 	url = https://github.com/apple-oss-distributions/Libc.git
 	branch = rel/Libc-763
+[submodule "CoreFoundation"]
+	path = CoreFoundation
+	url = https://github.com/gerickson/opencflite.git
+[submodule "Tools/cctools"]
+	path = Tools/cctools
+	url = https://github.com/ravynsoft/cctools-port
+[submodule "BuildHost/xar"]
+	path = BuildHost/xar
+	url = https://github.com/tpoechtrager/xar
+[submodule "BuildHost/apple-libtapi"]
+	path = BuildHost/apple-libtapi
+	url = https://github.com/tpoechtrager/apple-libtapi.git
