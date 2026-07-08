@@ -1,0 +1,3 @@
+#!/bin/bash
+MIGCOM=/home/oaky/Projects/PocketDarwin/toolchain/bin/migcom
+/usr/bin/mig "$@"

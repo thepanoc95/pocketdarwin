@@ -1,0 +1,35 @@
+#!/bin/bash
+# Translate Apple -arch flags to GCC-style -march flags, and
+# filter out flags that are not valid or wanted on Linux.
+skip_next=0
+args=()
+for arg in "$@"; do
+    if [ $skip_next -eq 1 ]; then
+        skip_next=0
+        case "$arg" in
+            armv7|armv7s) args+=(-march=armv7-a) ;;
+            armv6|armv6k) args+=(-march=armv6) ;;
+            arm64)        args+=(-march=armv8-a) ;;
+            *)            ;; # skip unknown arch
+        esac
+        continue
+    fi
+    if [ "$arg" = "-arch" ]; then
+        skip_next=1
+        continue
+    fi
+    # Strip ARM-mode-only flags for Linux clang (Apple-specific or unwanted)
+    case "$arg" in
+        -mthumb|-mthumb-interwork)
+            # The kernel is compiled in ARM mode; skip Thumb flags
+            continue
+            ;;
+        -arch)
+            # should not happen, handled above
+            skip_next=1
+            continue
+            ;;
+    esac
+    args+=("$arg")
+done
+exec /home/oaky/.local/share/swiftly/bin/clang -target arm-linux-gnueabi "${args[@]}"

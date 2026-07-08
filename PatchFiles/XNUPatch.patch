@@ -1,3 +1,392 @@
+diff --git a/SETUP/config/Makefile b/SETUP/config/Makefile
+index 8889afe..896ba9e 100644
+--- a/SETUP/config/Makefile
++++ b/SETUP/config/Makefile
+@@ -16,6 +16,15 @@ WARNFLAGS = -Wall
+ 
+ LDFLAGS = -isysroot $(HOST_SDKROOT)
+ 
++# Linux host tool compat: K&R C, BSD types from sys/types.h via _DEFAULT_SOURCE
++# NOTE: -O1 (not -O0) is required to avoid segfaults in K&R pointer code
++UNAME_S := $(shell uname -s)
++ifeq ($(UNAME_S),Linux)
++override CFLAGS := -O1 -g -I$(SOURCE) -I. -std=gnu99 -D_DEFAULT_SOURCE -include sys/sysmacros.h -Wno-implicit-int -Wno-implicit-function-declaration -Wno-deprecated-non-prototype -Wno-pointer-to-int-cast
++endif
++
++# On Linux, config must be pre-built (below): K&R C + BSD-isms
++# segfault at -O0 with modern Clang. See doconf_patches.sh.
+ config: $(OBJS)
+ 	$(_v)$(HOST_CC) $(LDFLAGS) -o $@ $^
+ 	@echo HOST_LD $@
+diff --git a/SETUP/decomment/Makefile b/SETUP/decomment/Makefile
+index 05cf5b8..d00540a 100644
+--- a/SETUP/decomment/Makefile
++++ b/SETUP/decomment/Makefile
+@@ -15,6 +15,12 @@ WARNFLAGS = -Wall
+ 
+ LDFLAGS = -isysroot $(HOST_SDKROOT)
+ 
++# Linux host tool compat: getc_unlocked/putchar_unlocked need _DEFAULT_SOURCE
++UNAME_S := $(shell uname -s)
++ifeq ($(UNAME_S),Linux)
++override CFLAGS += -std=gnu99 -D_DEFAULT_SOURCE -Wno-implicit-int -Wno-implicit-function-declaration
++endif
++
+ decomment: $(OBJS)
+ 	$(_v)$(HOST_CC) $(LDFLAGS) -o $@ $^
+ 	@echo HOST_LD $@
+diff --git a/SETUP/md/Makefile b/SETUP/md/Makefile
+index b2741a7..1e8623e 100644
+--- a/SETUP/md/Makefile
++++ b/SETUP/md/Makefile
+@@ -15,6 +15,12 @@ WARNFLAGS = -Wall
+ 
+ LDFLAGS = -isysroot $(HOST_SDKROOT)
+ 
++# Linux host tool compat: K&R C, S_IFMT requires _DEFAULT_SOURCE
++UNAME_S := $(shell uname -s)
++ifeq ($(UNAME_S),Linux)
++override CFLAGS += -std=gnu99 -D_DEFAULT_SOURCE -include sys/sysmacros.h -Wno-implicit-int -Wno-implicit-function-declaration -Wno-deprecated-non-prototype
++endif
++
+ md: $(OBJS)
+ 	$(_v)$(HOST_CC) $(LDFLAGS) -o $@ $^
+ 	@echo HOST_LD $@
+diff --git a/libkern/kmod/c_start.c b/libkern/kmod/c_start.c
+index a859e22..8cc7c1a 100644
+--- a/libkern/kmod/c_start.c
++++ b/libkern/kmod/c_start.c
+@@ -51,7 +51,10 @@ extern kmod_info_t KMOD_INFO_NAME;
+ 
+ /*********************************************************************
+ *********************************************************************/
+-__private_extern__ kern_return_t _start(kmod_info_t *ki, void *data)
++#if defined(__ELF__)
++__attribute__((visibility("hidden")))
++#endif
++kern_return_t _start(kmod_info_t *ki, void *data)
+ {
+     if (_realmain)
+         return (*_realmain)(ki, data);
+@@ -61,21 +64,30 @@ __private_extern__ kern_return_t _start(kmod_info_t *ki, void *data)
+ 
+ /*********************************************************************
+ *********************************************************************/
+-__private_extern__ const char * OSKextGetCurrentIdentifier(void)
++#if defined(__ELF__)
++__attribute__((visibility("hidden")))
++#endif
++const char * OSKextGetCurrentIdentifier(void)
+ {
+     return KMOD_INFO_NAME.name;
+ }
+ 
+ /*********************************************************************
+ *********************************************************************/
+-__private_extern__ const char * OSKextGetCurrentVersionString(void)
++#if defined(__ELF__)
++__attribute__((visibility("hidden")))
++#endif
++const char * OSKextGetCurrentVersionString(void)
+ {
+     return KMOD_INFO_NAME.version;
+ }
+ 
+ /*********************************************************************
+ *********************************************************************/
+-__private_extern__ OSKextLoadTag OSKextGetCurrentLoadTag(void)
++#if defined(__ELF__)
++__attribute__((visibility("hidden")))
++#endif
++OSKextLoadTag OSKextGetCurrentLoadTag(void)
+ {
+     return (OSKextLoadTag)KMOD_INFO_NAME.id;
+ }
+diff --git a/libkern/kmod/c_stop.c b/libkern/kmod/c_stop.c
+index d718160..8276d10 100644
+--- a/libkern/kmod/c_stop.c
++++ b/libkern/kmod/c_stop.c
+@@ -47,7 +47,10 @@
+ // These global symbols will be defined by CreateInfo script's info.c file.
+ extern kmod_stop_func_t *_antimain;
+ 
+-__private_extern__ kern_return_t _stop(kmod_info_t *ki, void *data)
++#if defined(__ELF__)
++__attribute__((visibility("hidden")))
++#endif
++kern_return_t _stop(kmod_info_t *ki, void *data)
+ {
+     if (_antimain)
+         return (*_antimain)(ki, data);
+diff --git a/libkern/kmod/cplus_start.c b/libkern/kmod/cplus_start.c
+index 31f2704..9644e52 100644
+--- a/libkern/kmod/cplus_start.c
++++ b/libkern/kmod/cplus_start.c
+@@ -52,7 +52,11 @@
+ #include <libkern/OSKextLib.h>
+ 
+ asm(".constructors_used = 0");
++#if defined(__ELF__)
++asm(".hidden .constructors_used");
++#else
+ asm(".private_extern .constructors_used");
++#endif
+ 
+ // This global symbols will be defined by CreateInfo script's info.c file.
+ extern kmod_start_func_t *_realmain;
+@@ -64,7 +68,10 @@ extern kern_return_t OSRuntimeFinalizeCPP(kmod_info_t *ki, void *data);
+ 
+ /*********************************************************************
+ *********************************************************************/
+-__private_extern__ kern_return_t _start(kmod_info_t *ki, void *data)
++#if defined(__ELF__)
++__attribute__((visibility("hidden")))
++#endif
++kern_return_t _start(kmod_info_t *ki, void *data)
+ {
+     kern_return_t result = OSRuntimeInitializeCPP(ki, data);
+ 
+@@ -83,21 +90,30 @@ __private_extern__ kern_return_t _start(kmod_info_t *ki, void *data)
+ 
+ /*********************************************************************
+ *********************************************************************/
+-__private_extern__ const char * OSKextGetCurrentIdentifier(void)
++#if defined(__ELF__)
++__attribute__((visibility("hidden")))
++#endif
++const char * OSKextGetCurrentIdentifier(void)
+ {
+     return KMOD_INFO_NAME.name;
+ }
+ 
+ /*********************************************************************
+ *********************************************************************/
+-__private_extern__ const char * OSKextGetCurrentVersionString(void)
++#if defined(__ELF__)
++__attribute__((visibility("hidden")))
++#endif
++const char * OSKextGetCurrentVersionString(void)
+ {
+     return KMOD_INFO_NAME.version;
+ }
+ 
+ /*********************************************************************
+ *********************************************************************/
+-__private_extern__ OSKextLoadTag OSKextGetCurrentLoadTag(void)
++#if defined(__ELF__)
++__attribute__((visibility("hidden")))
++#endif
++OSKextLoadTag OSKextGetCurrentLoadTag(void)
+ {
+     return (OSKextLoadTag)KMOD_INFO_NAME.id;
+ }
+diff --git a/libkern/kmod/cplus_stop.c b/libkern/kmod/cplus_stop.c
+index 2b2bdc6..06490c4 100644
+--- a/libkern/kmod/cplus_stop.c
++++ b/libkern/kmod/cplus_stop.c
+@@ -51,7 +51,11 @@
+ #include <mach/mach_types.h>
+ 
+ asm(".destructors_used = 0");
++#if defined(__ELF__)
++asm(".hidden .destructors_used");
++#else
+ asm(".private_extern .destructors_used");
++#endif
+ 
+ // Functions defined in libkern/c++/OSRuntime.cpp
+ extern kern_return_t OSRuntimeFinalizeCPP(kmod_info_t *ki, void *data);
+@@ -59,7 +63,10 @@ extern kern_return_t OSRuntimeFinalizeCPP(kmod_info_t *ki, void *data);
+ // This global symbols will be defined by CreateInfo script's info.c file.
+ extern kmod_stop_func_t *_antimain;
+ 
+-__private_extern__ kern_return_t _stop(kmod_info_t *ki, void *data)
++#if defined(__ELF__)
++__attribute__((visibility("hidden")))
++#endif
++kern_return_t _stop(kmod_info_t *ki, void *data)
+ {
+     kern_return_t result = KERN_SUCCESS;
+ 
+diff --git a/libkern/libkern/OSAtomic.h b/libkern/libkern/OSAtomic.h
+index 8499c69..3763521 100644
+--- a/libkern/libkern/OSAtomic.h
++++ b/libkern/libkern/OSAtomic.h
+@@ -644,10 +644,9 @@ static inline void OSMemoryBarrier(void) {
+ #if defined(__arm__)
+ #ifndef __LP64__
+ static inline void OSMemoryBarrier(void) {
+-#ifdef _ARM_ARCH_7
++#if defined(_ARM_ARCH_7) || defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__)
+ 	__asm__ volatile("dsb" ::: "memory");
+ #else
+-	UInt32 temp = 0;
+ 	__asm__ volatile("mcr p15, 0, %0, c7, c10, 4" : : "r" (temp));
+ #endif
+ }
+diff --git a/makedefs/MakeInc.def b/makedefs/MakeInc.def
+index ee67e78..5b5ff92 100644
+--- a/makedefs/MakeInc.def
++++ b/makedefs/MakeInc.def
+@@ -121,7 +121,8 @@ endif
+ export SUPPORTED_I386_MACHINE_CONFIGS := DEFAULT
+ export SUPPORTED_X86_64_MACHINE_CONFIGS := DEFAULT
+ export SUPPORTED_ARM_MACHINE_CONFIGS := S5L8920X S5L8922X S5L8930X ARMPBA8 SUN4I OMAP3530 OMAP335X RASPBERRYPI \
+-					OMAP3430_RX51 ARM_RVEB_V6 S5L8720X S5L8900XRB MSM8960_TOUCHPAD IMX53
++					OMAP3430_RX51 ARM_RVEB_V6 S5L8720X S5L8900XRB MSM8960_TOUCHPAD IMX53 \
++					MSM8916_HARPIA
+ export SUPPORTED_ARM64_MACHINE_CONFIGS := DEFAULT VEXPRESS 
+ 
+ #
+@@ -311,6 +312,7 @@ ARCH_FLAGS_ARM64	= -arch arm64
+ 
+ ARCH_FLAGS_ARM		  = $($(addsuffix $(MACHINE_CONFIG),ARCH_FLAGS_ARM_))
+ 
++ARCH_FLAGS_ARM_MSM8916_HARPIA	= -arch armv7
+ ARCH_FLAGS_ARM_S5L8930X	= -arch armv7
+ ARCH_FLAGS_ARM_S5L8922X	= -arch armv7
+ ARCH_FLAGS_ARM_S5L8920X	= -arch armv7
+@@ -324,6 +326,8 @@ ARCH_FLAGS_ARM_MSM8960_TOUCHPAD	= -arch armv7
+ ARCH_FLAGS_ARM_RASPBERRYPI	= -arch armv6
+ ARCH_FLAGS_ARM_ARM_RVEB_V6	= -arch armv6
+ ARCH_FLAGS_ARM_IMX53		= -arch armv7
++ARCH_FLAGS_ARM_MOTO_MSM8916 = -arch armv7
++ARCH_FLAGS_ARM_MSM8916_HARPIA = -arch armv7
+ 
+ #
+ # Default CFLAGS
+@@ -333,7 +337,7 @@ ifeq ($(UNAME_S),Linux)
+ 	# XXX Fix this.
+ 	ifeq ($(word 2, $(TARGET_CONFIGS_UC)),ARM)
+ 		BUILD_NO_DEBUG := 1
+-        RC_CFLAGS := -D__arm__ -DARM
++		RC_CFLAGS := -D__arm__ -DARM
+ 	endif
+ endif
+ 
+diff --git a/makedefs/MakeInc.dir b/makedefs/MakeInc.dir
+index c615728..ab1c366 100644
+--- a/makedefs/MakeInc.dir
++++ b/makedefs/MakeInc.dir
+@@ -490,8 +490,6 @@ all_embedded all_devicemap: all
+ #
+ # Build all architectures for all Configuration/Architecture options
+ #
+-do_build_all:
+-
+ BUILD_ALL_SUBDIRS_TARGETS = $(addprefix build_all_,$(COMP_SUBDIRS) $($(addprefix COMP_SUBDIRS_, $(ARCH_CONFIG))))
+ 
+ .PHONY: $(BUILD_ALL_SUBDIRS_TARGETS)
+@@ -517,7 +515,7 @@ build_all: $(BUILD_ALL_SUBDIRS_TARGETS)
+ 	else		\
+ 		TARGET="$(OBJROOT)/$(KERNEL_CONFIG)_$(ARCH_CONFIG)_$(MACHINE_CONFIG)/$(COMPONENT)";	\
+ 	fi;		\
+-	${MAKE} INCL_MAKEDEP=TRUE TARGET=$${TARGET} do_build_all;	\
++	${MAKE} INCL_MAKEDEP=TRUE TARGET=$${TARGET} do_build_all;	\	\
+ 	_TMP_comp_subdir="$(CONFIG_SUBDIRS) $($(addprefix CONFIG_SUBDIRS_, $(ARCH_CONFIG)))";	\
+ 	for comp_subdir in $${_TMP_comp_subdir};			\
+ 	do								\
+diff --git a/osfmk/arm/PlatformConfigs.h b/osfmk/arm/PlatformConfigs.h
+index f7247bc..9e1f8f5 100644
+--- a/osfmk/arm/PlatformConfigs.h
++++ b/osfmk/arm/PlatformConfigs.h
+@@ -30,6 +30,12 @@
+ #ifndef _PLATFORMCONFIGS_H_
+ #define _PLATFORMCONFIGS_H_
+ 
++/* ARMv8-A Cortex-A53 platforms (32-bit mode). */
++
++#ifdef BOARD_CONFIG_MSM8916_HARPIA
++#define __ARM_PROCESSOR_CLASS_CORTEX_A53__		1
++#endif
++
+ /* ARMv7 Cortex-A9 platforms. */
+ 
+ #ifdef BOARD_CONFIG_MSM8960_TOUCHPAD
+diff --git a/osfmk/arm/misc_protos.h b/osfmk/arm/misc_protos.h
+index 4cd4969..6290cd7 100644
+--- a/osfmk/arm/misc_protos.h
++++ b/osfmk/arm/misc_protos.h
+@@ -78,4 +78,11 @@ void cache_initialize(void);
+ void get_cachetype_cp15();
+ void identify_arm_cpu(void);
+ 
++extern void machine_startup(void);
++extern void Halt_system(void);
++extern void set_mmu_ttb(uint32_t ttb);
++extern void set_mmu_ttb_alt(uint32_t ttb);
++extern void set_mmu_ttbcr(uint32_t ttbcr);
++extern void flush_mmu_tlb(void);
++
+ #endif
+diff --git a/osfmk/console/arm/serial_console.c b/osfmk/console/arm/serial_console.c
+index 993877c..53bce7d 100644
+--- a/osfmk/console/arm/serial_console.c
++++ b/osfmk/console/arm/serial_console.c
+@@ -35,6 +35,7 @@
+ #include <console/video_console.h>
+ #include <console/serial_protos.h>
+ #include <kern/kalloc.h>
++#include <pexpert/arm/protos.h>
+ 
+ static struct {
+ 	char	*buffer;
+diff --git a/osfmk/kern/kmod.c b/osfmk/kern/kmod.c
+index 160c4bd..d56fa7f 100644
+--- a/osfmk/kern/kmod.c
++++ b/osfmk/kern/kmod.c
+@@ -142,6 +142,11 @@ kmod_get_info(
+     host_t host __unused,
+     kmod_info_array_t * kmod_list KMOD_MIG_UNUSED,
+     mach_msg_type_number_t * kmodCount KMOD_MIG_UNUSED);
++
++extern kern_return_t kext_get_kmod_info(
++    kmod_info_array_t * kmod_list,
++    mach_msg_type_number_t * kmodCount);
++
+ kern_return_t
+ kmod_get_info(
+     host_t host __unused,
+diff --git a/osfmk/kern/machine.h b/osfmk/kern/machine.h
+index 6d46f2c..653c78d 100644
+--- a/osfmk/kern/machine.h
++++ b/osfmk/kern/machine.h
+@@ -100,6 +100,8 @@ extern void halt_cpu(void);
+ extern void halt_all_cpus(
+ 					boolean_t           reboot);
+ 
++extern void Halt_system(void);
++
+ extern char *machine_boot_info(
+ 					char                *buf,
+ 					vm_size_t           buf_len);
+diff --git a/osfmk/kern/misc_protos.h b/osfmk/kern/misc_protos.h
+index fa9a572..ddfe716 100644
+--- a/osfmk/kern/misc_protos.h
++++ b/osfmk/kern/misc_protos.h
+@@ -83,6 +83,8 @@ extern int copyin(
+ 	char                *kernel_addr,
+ 	vm_size_t           nbytes);
+ 
++extern void Halt_system(void);
++
+ /* Move a NUL-terminated string from a user space to kernel space */
+ extern int copyinstr(
+ 	const user_addr_t   user_addr,
+diff --git a/osfmk/vm/vm_pageout.c b/osfmk/vm/vm_pageout.c
+index 2bfd6e7..c95e6df 100644
+--- a/osfmk/vm/vm_pageout.c
++++ b/osfmk/vm/vm_pageout.c
+@@ -3022,7 +3022,8 @@ uint32_t vm_pageout_considered_page_last = 0;
+  * called once per-second via "compute_averages"
+  */
+ void
+-compute_pageout_gc_throttle()
++compute_pageout_gc_throttle(
++    void *arg __unused)
+ {
+ 	if (vm_pageout_considered_page != vm_pageout_considered_page_last) {
+ 
 diff --git a/pexpert/conf/files.arm b/pexpert/conf/files.arm
 index 6918d22..c8ecbd0 100644
 --- a/pexpert/conf/files.arm

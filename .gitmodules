@@ -33,3 +33,6 @@
 [submodule "Tools/dtc2adt"]
 	path = Tools/dtc2adt
 	url = https://github.com/darwin-on-arm/dtc-AppleDeviceTree
+[submodule "Library/libDeviceBundle/libpbxparser"]
+	path = Library/libDeviceBundle/libpbxparser
+	url = https://github.com/abidon/libpbxparser

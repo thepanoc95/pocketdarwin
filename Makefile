@@ -22,14 +22,23 @@ BOARD ?= harpia
 -include board.mk
 
 # Overridable from env / command line
+# Use simple assignment (=) to override make's built-in defaults
+# (GNU make defaults CC=cc, LD=ld, AS=as, etc.).
 ARCH            ?= arm64
 CROSS_COMPILE   ?= aarch64-linux-gnu-
-CC              ?= $(CROSS_COMPILE)gcc
-AS              ?= $(CROSS_COMPILE)as
-LD              ?= $(CROSS_COMPILE)ld
-OBJCOPY         ?= $(CROSS_COMPILE)objcopy
+CC              = $(CROSS_COMPILE)gcc
+AS              = $(CROSS_COMPILE)as
+LD              = $(CROSS_COMPILE)ld
+OBJCOPY         = $(CROSS_COMPILE)objcopy
 DTC             ?= dtc
 MKBOOTIMG       ?= mkbootimg
+MIG             ?= mig
+MIGCOM          ?= $(ROOTDIR)/BuildHost/xnu-deps-linux/bootstrap_cmds-60/migcom.tproj/migcom
+BISON           ?= bison
+FLEX            ?= flex
+NM              ?= $(CROSS_COMPILE)nm
+STRIP           ?= $(CROSS_COMPILE)strip
+UNIFDEF         ?= unifdef
 
 # ---------------------------------------------------------------------------
 # Directories
@@ -50,21 +59,58 @@ DTB_BUILDDIR    := $(BUILDDIR)/dtb
 # XNU kernel build configuration
 # ---------------------------------------------------------------------------
 # The XNU build system expects these env vars set by xnu-build.
-# We set up the minimal set for an ARM64 cross-compile.
+# We set up the minimal set for an ARM/ARM64 cross-compile.
 KERNEL_CONFIG   ?= RELEASE
 ARCH_CONFIG     ?= ARM64
 MACHINE_CONFIG  ?= DEFAULT
 XNU_TARGET      ?= all
 
+# Override ARCH_CONFIGS from host arch (x86_64) when cross-compiling
+ifeq ($(ARCH_CONFIG),ARM)
+ARCH_CONFIGS    := ARM
+PLATFORM        := iPhoneOS
+endif
+ifeq ($(ARCH_CONFIG),ARM64)
+ARCH_CONFIGS    := ARM64
+PLATFORM        := iPhoneOS
+endif
+
+# On Linux, use Clang wrapper scripts that add -target
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+# Add toolchain bin dir to PATH so sub-makes find our wrappers
+export PATH := $(ROOTDIR)/toolchain/bin:$(PATH)
+export MIGCOM
+ifeq ($(ARCH_CONFIG),ARM)
+CC := arm-linux-gnueabi-clang
+CXX := arm-linux-gnueabi-clang++
+LD := arm-linux-gnueabi-clang++ -nostdlib
+endif
+ifeq ($(ARCH_CONFIG),ARM64)
+CC := aarch64-linux-gnu-clang
+CXX := aarch64-linux-gnu-clang++
+LD := aarch64-linux-gnu-clang++ -nostdlib
+endif
+endif
+
 XNU_MAKE_ARGS   := ARCH_CONFIG=$(ARCH_CONFIG) \
+                   ARCH_CONFIGS=$(ARCH_CONFIGS) \
                    KERNEL_CONFIG=$(KERNEL_CONFIG) \
                    MACHINE_CONFIG=$(MACHINE_CONFIG) \
+                   PLATFORM=$(PLATFORM) \
                    SRCROOT=$(KERNEL_DIR) \
                    OBJROOT=$(KERNEL_BUILDDIR)/obj \
                    SYMROOT=$(KERNEL_BUILDDIR)/sym \
                    DSTROOT=$(KERNEL_BUILDDIR)/dst \
-                   CC=$(CC) \
-                   LD=$(LD)
+                   HOST_CC=clang \
+                   HOST_CXX=clang++ \
+                    MIG=$(MIG) \
+                    MIGCOM=$(MIGCOM) \
+                    HOST_BISON=$(BISON) \
+                    HOST_FLEX=$(FLEX) \
+                    NM=$(NM) \
+                    STRIP=$(STRIP) \
+                    UNIFDEF=$(UNIFDEF)
 
 # ---------------------------------------------------------------------------
 # Boot image config
@@ -110,7 +156,9 @@ help:
 # ===========================================================================
 kernel: $(KERNEL_DIR)/Makefile
 	@mkdir -p $(KERNEL_BUILDDIR)/obj $(KERNEL_BUILDDIR)/sym $(KERNEL_BUILDDIR)/dst
-	$(MAKE) -C $(KERNEL_DIR) $(XNU_TARGET) $(XNU_MAKE_ARGS)
+	$(MAKE) -C $(KERNEL_DIR) $(XNU_TARGET) \
+		CC='$(CC)' LD='$(LD)' MIGCC='$(word 1,$(CC))' \
+		$(XNU_MAKE_ARGS)
 	@echo "Kernel built: $(KERNEL_BUILDDIR)/dst/mach_kernel"
 
 kernel_clean:

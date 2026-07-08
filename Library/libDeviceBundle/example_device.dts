@@ -1,0 +1,75 @@
+// Example Device Tree Source for a device bundle
+
+/dts-v1/;
+
+/ {
+    model = "Example Device X";
+    compatible = "example,device-x", "generic";
+    
+    #address-cells = <2>;
+    #size-cells = <2>;
+    
+    cpus {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        
+        cpu@0 {
+            device_type = "cpu";
+            compatible = "arm,cortex-a72";
+            reg = <0>;
+            clock-frequency = <2000000000>;
+        };
+        
+        cpu@1 {
+            device_type = "cpu";
+            compatible = "arm,cortex-a72";
+            reg = <1>;
+            clock-frequency = <2000000000>;
+        };
+    };
+    
+    memory@80000000 {
+        device_type = "memory";
+        reg = <0x0 0x80000000 0x0 0x100000000>; // 4GB @ 2GB
+    };
+    
+    uart@10000000 {
+        compatible = "ns16550a";
+        reg = <0x0 0x10000000 0x0 0x1000>;
+        clock-frequency = <24000000>;
+        interrupts = <33>;
+        interrupt-parent = <&gic>;
+    };
+    
+    gpio@11000000 {
+        compatible = "example,gpio";
+        reg = <0x0 0x11000000 0x0 0x1000>;
+        #gpio-cells = <2>;
+        gpio-controller;
+        interrupts = <34>;
+        interrupt-parent = <&gic>;
+    };
+    
+    i2c@12000000 {
+        compatible = "example,i2c";
+        reg = <0x0 0x12000000 0x0 0x1000>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+        clock-frequency = <400000>;
+        
+        pmic@58 {
+            compatible = "example,pmic";
+            reg = <0x58>;
+        };
+    };
+    
+    gic: interrupt-controller@13000000 {
+        compatible = "arm,gic-400";
+        reg = <0x0 0x13000000 0x0 0x1000>,
+              <0x0 0x13010000 0x0 0x1000>,
+              <0x0 0x13020000 0x0 0x2000>,
+              <0x0 0x13040000 0x0 0x2000>;
+        #interrupt-cells = <3>;
+        interrupt-controller;
+    };
+};

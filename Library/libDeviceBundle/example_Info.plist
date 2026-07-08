@@ -1,0 +1,47 @@
+{
+    CFBundleName = "Example Device";
+    CFBundleVersion = "1.0.0";
+    CFBundleIdentifier = "com.example.device";
+    
+    DeviceModel = "Device-X";
+    DeviceManufacturer = "Example Corp";
+    DeviceArch = "arm64";
+    DeviceTreeSource = "device.dts";
+    
+    CompatibleDevices = (
+        "device-x.v1",
+        "device-x.v2"
+    );
+    
+    Drivers = {
+        UARTDriver = {
+            Path = "drivers/uart.so";
+            Version = "1.0";
+            Properties = {
+                "io.baudrate" = "115200";
+                "io.flowcontrol" = "none";
+            };
+        };
+        GPIODriver = {
+            Path = "drivers/gpio.so";
+            Version = "1.0";
+            Properties = {
+                "gpio.pins" = "32";
+            };
+        };
+        I2CDriver = {
+            Path = "drivers/i2c.so";
+            Version = "1.0";
+            Properties = {
+                "i2c.speed" = "400000";
+            };
+        };
+    };
+    
+    DeviceProperties = {
+        "device.bootloader" = "fastboot";
+        "device.secure-boot" = "enabled";
+        "device.memory" = "4GB";
+        "device.storage" = "64GB";
+    };
+}
