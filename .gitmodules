@@ -36,3 +36,6 @@
 [submodule "Library/libDeviceBundle/libpbxparser"]
 	path = Library/libDeviceBundle/libpbxparser
 	url = https://github.com/abidon/libpbxparser
+[submodule "boot/MegaBooter"]
+	path = boot/MegaBooter
+	url = https://github.com/msm8916-mainline/lk2nd

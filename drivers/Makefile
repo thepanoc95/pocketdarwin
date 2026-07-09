@@ -24,7 +24,7 @@ KERNEL_DIR  ?= $(ROOTDIR)/Kernel
 BUILDDIR    ?= $(ROOTDIR)/build
 BOARD       ?= harpia
 
-CROSS_COMPILE ?= aarch64-linux-gnu-
+CROSS_COMPILE ?= arm-linux-gnueabihf-
 CC  ?= $(CROSS_COMPILE)gcc
 CXX ?= $(CROSS_COMPILE)g++
 LD  ?= $(CROSS_COMPILE)ld
