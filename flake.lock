@@ -18,25 +18,7 @@
     },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs",
-        "xnu-deps-linux": "xnu-deps-linux"
-      }
-    },
-    "xnu-deps-linux": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1413516413,
-        "narHash": "sha256-LTuV3vGlqvPHMiSx3r1nMrfz/nIGq50NsaToqU7VPQI=",
-        "owner": "b-man",
-        "repo": "xnu-deps-linux",
-        "rev": "160882ea18c02bf0de28bf9dc230bd2e1e72b4f9",
-        "type": "github"
-      },
-      "original": {
-        "owner": "b-man",
-        "repo": "xnu-deps-linux",
-        "rev": "160882ea18c02bf0de28bf9dc230bd2e1e72b4f9",
-        "type": "github"
+        "nixpkgs": "nixpkgs"
       }
     }
   },
