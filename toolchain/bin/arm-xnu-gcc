@@ -1,0 +1,43 @@
+#!/bin/bash
+# XNU GCC wrapper: translates Apple-specific compiler flags to GCC equivalents
+DIR=$(dirname "$(readlink -f "$0")")
+SKIP=0
+ARGS=()
+for arg in "$@"; do
+    if [ "$SKIP" -gt 0 ]; then
+        SKIP=$((SKIP - 1))
+        continue
+    fi
+    case "$arg" in
+        -arch)
+            SKIP=1
+            ;;
+        -Wextra-tokens|-integrated-as|-Wno-deprecated-non-prototype|-Wno-unknown-warning-option|-Wno-unknown-attributes|-Wno-nullability-completeness|-Wno-poison-system-directories|-Wno-private-extern)
+            ;;
+        -Wno-objc-*)
+            ;;
+        -isysroot)
+            SKIP=1
+            ;;
+        -iframeworkwithsysroot|-iframework)
+            SKIP=1
+            ;;
+        -F*)
+            ;;
+        -Xclang*)
+            ;;
+        -target)
+            SKIP=1
+            ;;
+        -fno-objc-arc)
+            ;;
+        *)
+            ARGS+=("$arg")
+            ;;
+    esac
+done
+# Define Apple-specific macros for GCC compatibility
+exec "$DIR/arm-eabi-gcc" \
+    -D__private_extern__='__attribute__((visibility("hidden")))' \
+    -D__assert_only="" \
+    "${ARGS[@]}"

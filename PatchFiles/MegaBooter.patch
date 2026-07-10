@@ -1,0 +1,304 @@
+diff --git a/lib/fs/fs.c b/lib/fs/fs.c
+index 6278c0742..ae4b005c7 100644
+--- a/lib/fs/fs.c
++++ b/lib/fs/fs.c
+@@ -61,9 +61,11 @@ static struct list_node fses = LIST_INITIAL_VALUE(fses);
+ 
+ /* qualcomm runs fs_init() manually, so we use it to init filesystem submodules */
+ void ext2_init(void);
++void fat_init(void);
+ 
+ void fs_init(void) {
+ 	ext2_init();
++	fat_init();
+ }
+ 
+ static struct fs *find_fs(const char *name)
+diff --git a/lib/fs/rules.mk b/lib/fs/rules.mk
+index 458295b94..ed4c1ba63 100644
+--- a/lib/fs/rules.mk
++++ b/lib/fs/rules.mk
+@@ -1,7 +1,8 @@
+ LOCAL_DIR := $(GET_LOCAL_DIR)
+ 
+ MODULES += \
+-	lib/fs/ext2
++	lib/fs/ext2 \
++	lib/fs/fat
+ 
+ OBJS += \
+ 	$(LOCAL_DIR)/fs.o \
+diff --git a/lk2nd/boot/boot.c b/lk2nd/boot/boot.c
+index 7f37c612d..ff6790738 100644
+--- a/lk2nd/boot/boot.c
++++ b/lk2nd/boot/boot.c
+@@ -58,6 +58,7 @@ static void lk2nd_scan_devices(void)
+ 		}
+ 
+ 		lk2nd_try_extlinux(mountpoint);
++		lk2nd_try_lk2ndboot(mountpoint);
+ 	}
+ 
+ 	dprintf(INFO, "boot: Bootable file system not found. Reverting to android boot.\n");
+diff --git a/lk2nd/boot/boot.h b/lk2nd/boot/boot.h
+index 0edcae564..2d54f4dde 100644
+--- a/lk2nd/boot/boot.h
++++ b/lk2nd/boot/boot.h
+@@ -13,4 +13,9 @@ void lk2nd_print_file_tree(char *root, char *prefix);
+ /* extlinux.c */
+ void lk2nd_try_extlinux(const char *mountpoint);
+ 
++/* lk2ndboot.c */
++void lk2nd_try_lk2ndboot(const char *mountpoint);
++void lk2nd_boot_file(const char *mountpoint, const char *filename);
++void boot_jump(void *entry, void *arg);
++
+ #endif /* LK2ND_BOOT_BOOT_H */
+diff --git a/lk2nd/boot/rules.mk b/lk2nd/boot/rules.mk
+index 14d26764c..e271f18ed 100644
+--- a/lk2nd/boot/rules.mk
++++ b/lk2nd/boot/rules.mk
+@@ -9,6 +9,9 @@ MODULES += \
+ OBJS += \
+ 	$(LOCAL_DIR)/boot.o \
+ 	$(LOCAL_DIR)/extlinux.o \
++	$(LOCAL_DIR)/elfloader.o \
++	$(LOCAL_DIR)/macholoader.o \
++	$(LOCAL_DIR)/lk2ndboot.o \
+ 	$(LOCAL_DIR)/util.o \
+ 
+ # Default boot memory size limit (50 MiB)
+diff --git a/lk2nd/device/menu/menu.c b/lk2nd/device/menu/menu.c
+index 28ab377e7..fa9b925bd 100644
+--- a/lk2nd/device/menu/menu.c
++++ b/lk2nd/device/menu/menu.c
+@@ -12,7 +12,12 @@
+ #include <string.h>
+ #include <sys/types.h>
+ 
++#include <lib/bio.h>
++#include <lib/fs.h>
++
++#include <lk2nd/boot.h>
+ #include <lk2nd/device/keys.h>
++#include <lk2nd/hw/bdev.h>
+ #include <lk2nd/util/minmax.h>
+ #include <lk2nd/version.h>
+ 
+@@ -134,6 +139,168 @@ static void opt_bootloader(void) { reboot_device(FASTBOOT_MODE); }
+ static void opt_edl(void)        { reboot_device(EMERGENCY_DLOAD); }
+ static void opt_shutdown(void)   { shutdown_device(); }
+ 
++static void opt_boot_file(void)
++{
++	struct fbcon_config *fb = fbcon_display();
++	struct bdev_struct *bdevs;
++	char mountpoint[16];
++	dirhandle *dir;
++	struct dirent ent;
++	bdev_t *bdev;
++	int ret;
++
++#define MAX_BOOT_FILES 32
++	char mp_list[MAX_BOOT_FILES][16];
++	char file_list[MAX_BOOT_FILES][FS_MAX_FILE_LEN];
++	char disp_list[MAX_BOOT_FILES][FS_MAX_FILE_LEN];
++	int num_files = 0;
++	int y, y_menu, incr;
++
++	static bool bdev_init_done = false;
++
++	incr = FONT_HEIGHT * scale_factor;
++
++	fbcon_clear();
++	fbcon_puts("Scanning partitions...", SILVER, fb->height / 2, true);
++	fbcon_flush();
++
++	if (!bdev_init_done) {
++		lk2nd_bdev_init();
++		bdev_init_done = true;
++	}
++
++	bdevs = bio_get_bdevs();
++
++	list_for_every_entry(&bdevs->list, bdev, bdev_t, node) {
++		if (!bdev->is_leaf)
++			continue;
++
++		if (bdev->size < (16 * 1024 * 1024) &&
++		    !(bdev->label && !strncmp(bdev->label, "boot", 4)))
++			continue;
++
++		snprintf(mountpoint, sizeof(mountpoint), "/%s", bdev->name);
++		ret = fs_mount(mountpoint, "ext2", bdev->name);
++		if (ret < 0)
++			ret = fs_mount(mountpoint, "fat", bdev->name);
++		if (ret < 0)
++			continue;
++
++		{
++			char dirpath[FS_MAX_PATH_LEN];
++
++			snprintf(dirpath, sizeof(dirpath), "%s/lk2nd", mountpoint);
++			ret = fs_open_dir(dirpath, &dir);
++			if (ret < 0)
++				continue;
++
++			while (fs_read_dir(dir, &ent) == 0 && num_files < MAX_BOOT_FILES) {
++				char *at;
++
++				if (!strcmp(ent.name, ".") || !strcmp(ent.name, ".."))
++					continue;
++
++				strlcpy(mp_list[num_files], mountpoint, sizeof(mp_list[num_files]));
++				strlcpy(file_list[num_files], ent.name, sizeof(file_list[num_files]));
++
++				at = strchr(ent.name, '@');
++				if (at) {
++					size_t prefix_len = at - ent.name;
++					memcpy(disp_list[num_files], ent.name, prefix_len);
++					disp_list[num_files][prefix_len] = '\0';
++				} else {
++					strlcpy(disp_list[num_files], ent.name, sizeof(disp_list[num_files]));
++				}
++
++				num_files++;
++			}
++
++			fs_close_dir(dir);
++		}
++		break;
++	}
++
++	if (num_files == 0) {
++		fbcon_clear();
++		fbcon_puts("No binaries found in /lk2nd/", RED, fb->height / 2 - incr, true);
++		fbcon_puts("Press any key to return", SILVER, fb->height / 2, true);
++		fbcon_flush();
++		wait_key();
++		return;
++	}
++
++	y = incr * 2;
++	fbcon_clear();
++	fbcon_printf(WHITE, y, true, "Select binary to boot:");
++	y += incr * 2;
++	y_menu = y;
++	y += incr * (num_files + 2);
++
++	fbcon_printf(SILVER, y, true, "Volume keys to navigate,");
++	y += incr;
++	fbcon_printf(SILVER, y, true, "Power to select.");
++
++	{
++		int sel = 0;
++
++		while (true) {
++			int i;
++
++			y = y_menu;
++			fbcon_clear_msg(y / FONT_HEIGHT,
++					y / FONT_HEIGHT + num_files * scale_factor);
++
++			for (i = 0; i < num_files; i++) {
++				unsigned color = i == sel ? WHITE : SILVER;
++				char indicator = i == sel ? '>' : ' ';
++
++				fbcon_printf(color, y, true,
++					     "%c %s %c",
++					     indicator, disp_list[i], indicator);
++				y += incr;
++			}
++
++			fbcon_flush();
++
++			switch (wait_key()) {
++			case KEY_POWER:
++				if (sel >= 0 && sel < num_files) {
++					char relpath[FS_MAX_PATH_LEN];
++
++					snprintf(relpath, sizeof(relpath), "lk2nd/%s",
++						 file_list[sel]);
++					fbcon_clear();
++					fbcon_puts("Booting...", WHITE,
++						   fb->height / 2, true);
++					fbcon_flush();
++					lk2nd_boot_file(mp_list[sel], relpath);
++					fbcon_clear();
++					fbcon_puts("Error: failed to boot",
++						   RED, fb->height / 2 - incr, true);
++					fbcon_puts("Press any key",
++						   SILVER, fb->height / 2, true);
++					fbcon_flush();
++					wait_key();
++				}
++				break;
++			case KEY_VOLUMEUP:
++				if (sel == 0)
++					sel = num_files - 1;
++				else
++					sel--;
++				break;
++			case KEY_VOLUMEDOWN:
++				sel++;
++				if (sel >= num_files)
++					sel = 0;
++				break;
++			default:
++				break;
++			}
++		}
++	}
++}
++
+ static struct {
+ 	char *name;
+ 	unsigned color;
+@@ -144,6 +311,7 @@ static struct {
+ 	{ " Recovery ", ORANGE, opt_recovery },
+ 	{ "Bootloader", ORANGE, opt_bootloader },
+ 	{ "    EDL   ", RED,    opt_edl },
++	{ "Boot file", YELLOW, opt_boot_file },
+ 	{ " Shutdown ", RED,    opt_shutdown },
+ };
+ 
+diff --git a/lk2nd/device/menu/rules.mk b/lk2nd/device/menu/rules.mk
+index 02cf28a58..97eed7b0e 100644
+--- a/lk2nd/device/menu/rules.mk
++++ b/lk2nd/device/menu/rules.mk
+@@ -5,5 +5,10 @@ ifeq ($(ENABLE_FBCON_DISPLAY_MSG),1)
+ $(error lk2nd device menu conflicts with ENABLE_FBCON_DISPLAY_MSG)
+ endif
+ 
++MODULES += \
++	lib/bio \
++	lib/fs \
++	lk2nd/hw/bdev \
++
+ OBJS += \
+ 	$(LOCAL_DIR)/menu.o
+diff --git a/lk2nd/include/lk2nd/boot.h b/lk2nd/include/lk2nd/boot.h
+index ef3e935ff..2f96372df 100644
+--- a/lk2nd/include/lk2nd/boot.h
++++ b/lk2nd/include/lk2nd/boot.h
+@@ -3,6 +3,7 @@
+ #define LK2ND_BOOT_H
+ 
+ void lk2nd_boot(void);
++void lk2nd_boot_file(const char *mountpoint, const char *filename);
+ 
+ #endif /* LK2ND_BOOT_H */
+ 
+diff --git a/platform/msm_shared/scm.c b/platform/msm_shared/scm.c
+index 8c760838f..0e26fe86e 100644
+--- a/platform/msm_shared/scm.c
++++ b/platform/msm_shared/scm.c
+@@ -1,5 +1,7 @@
++__asm__(".arch_extension sec\n");
++
+ /* Copyright (c) 2011-2018,2019 The Linux Foundation. All rights reserved.
+- *
++
+  * Redistribution and use in source and binary forms, with or without
+  * modification, are permitted provided that the following conditions are
+  * met:

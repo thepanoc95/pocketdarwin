@@ -23,6 +23,8 @@ STATIC_TARGET := libDeviceBundle.a
 TOOL := device-bundle-tool
 TEST := device-bundle-tests
 
+MACXXFLAGS := -target arm-apple-darwin10 -arch $(BUILD_ARCH)
+
 # Directories
 INSTALL_PREFIX ?= /usr/local
 
