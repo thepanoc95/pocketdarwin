@@ -76,3 +76,8 @@ void *malloc(size_t size)
 
     return (void *)result;
 }
+
+void *free(size_t size)
+{
+  extern char 
+}
