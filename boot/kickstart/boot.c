@@ -64,12 +64,10 @@
   #define DISPLAY_HEIGHT        800
   #define DISPLAY_DEPTH         16  /* bits per pixel */
   #define DISPLAY_BPP           (DISPLAY_DEPTH / 8)
-  
-  /* Harpia UART base (BLSP1_UART2) */
+
   #define UART_BASE             0x78B0000
   
 #elif TARGET_PLATFORM == PLATFORM_QEMU_ARM64
-  /* Generic ARM64 platform (4GB RAM) */
   #define BOOTLOADER_BASE       0x40000000
   #define KERNEL_LOAD_BASE      0x40100000
   #define DEVICE_TREE_BASE      0x44000000
