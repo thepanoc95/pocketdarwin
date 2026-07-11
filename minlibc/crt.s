@@ -1,3 +1,4 @@
+#ifdef ARM || defined("__APPLE__")
 .section __TEXT,__text
 
 .align 2
@@ -68,3 +69,4 @@ __CTOR_LIST__:
     .long 0
 __CTOR_END__:
     .long 0
+#endif
