@@ -19,7 +19,7 @@ CRT_OBJ = crt0.o
 LIBC_OBJ = libc.o
 
 # Library targets
-MINLIBC_A = libminlibc.a
+MINLIBC_A = libSystem.a
 CRT_O = crt0.o
 
 # Default target

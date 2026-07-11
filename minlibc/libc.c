@@ -1,42 +1,25 @@
 /*
- * minlibc - Minimal C Runtime for XNU (macOS 10.7)
+ * minlibc - Portable C Runtime
  * ARM EABI (eabihf) support
  * 
- * libc.c: Core libc stubs and syscall wrappers
+ * libc_portable.c: Cross-platform libc (Linux, FreeBSD, macOS)
+ * Uses syscall_compat.h for platform-specific syscall numbers
  */
 
 #include <stddef.h>
 #include <stdint.h>
-
-/* ============================================================================
- * Syscall Numbers for ARM EABI on XNU (macOS 10.7)
- * ============================================================================ */
-
-#define SYS_exit        1
-#define SYS_fork        2
-#define SYS_read        3
-#define SYS_write       4
-#define SYS_open        5
-#define SYS_close       6
-#define SYS_wait4       114
-#define SYS_mmap        197
-#define SYS_munmap      73
-#define SYS_mprotect    74
-#define SYS_brk         45
+#include "syscall_compat.h"
 
 /* ============================================================================
  * ARM EABI Syscall Interface
  * ============================================================================
  * 
- * Registers:
- *   r0-r3: arguments
- *   r7: syscall number
- *   r0: return value
- * 
- * Call: svc 0x80 (or just svc 0 on newer versions)
+ * Consistent across Linux, BSD, and macOS ARM EABI:
+ * - r7: syscall number
+ * - r0-r3: arguments
+ * - svc 0: invoke syscall
  */
 
-/* Low-level syscall macro */
 static inline long __syscall(long num, long a1, long a2, long a3, 
                               long a4, long a5, long a6)
 {
@@ -45,8 +28,6 @@ static inline long __syscall(long num, long a1, long a2, long a3,
     register long r1 asm("r1") = a2;
     register long r2 asm("r2") = a3;
     register long r3 asm("r3") = a4;
-    
-    /* Note: r4 and r5 for a5/a6 if needed, but we keep it simple */
     
     asm volatile("svc 0" 
                  : "+r"(r0)
@@ -57,14 +38,24 @@ static inline long __syscall(long num, long a1, long a2, long a3,
 }
 
 /* ============================================================================
+ * Type Definitions
+ * ============================================================================ */
+
+typedef int fd_t;
+typedef int pid_t;
+typedef unsigned int uid_t;
+typedef unsigned int gid_t;
+typedef long ssize_t;
+typedef unsigned long size_t;
+typedef long off_t;
+
+/* ============================================================================
  * Process Control
  * ============================================================================ */
 
 void exit(int status)
 {
     __syscall(SYS_exit, status, 0, 0, 0, 0, 0);
-    
-    /* Infinite loop (should never reach) */
     while (1);
 }
 
@@ -73,11 +64,40 @@ void _exit(int status)
     exit(status);
 }
 
-/* ============================================================================
- * File I/O
- * ============================================================================ */
+pid_t fork(void)
+{
+    return (pid_t)__syscall(SYS_fork, 0, 0, 0, 0, 0, 0);
+}
 
-typedef int fd_t;
+pid_t getpid(void)
+{
+    return (pid_t)__syscall(SYS_getpid, 0, 0, 0, 0, 0, 0);
+}
+
+pid_t getppid(void)
+{
+    return (pid_t)__syscall(SYS_getppid, 0, 0, 0, 0, 0, 0);
+}
+
+pid_t waitpid(pid_t pid, int *status, int options)
+{
+    long ret = __syscall(SYS_wait4, pid, (long)status, options, 0, 0, 0);
+    return (pid_t)ret;
+}
+
+pid_t wait(int *status)
+{
+    return waitpid(-1, status, 0);
+}
+
+int execve(const char *filename, char *const argv[], char *const envp[])
+{
+    return (int)__syscall(SYS_execve, (long)filename, (long)argv, (long)envp, 0, 0, 0);
+}
+
+/* ============================================================================
+ * File I/O & Descriptors
+ * ============================================================================ */
 
 fd_t open(const char *path, int flags, int mode)
 {
@@ -89,9 +109,6 @@ int close(fd_t fd)
     return (int)__syscall(SYS_close, fd, 0, 0, 0, 0, 0);
 }
 
-typedef int ssize_t;
-typedef unsigned long size_t;
-
 ssize_t read(fd_t fd, void *buf, size_t count)
 {
     return (ssize_t)__syscall(SYS_read, fd, (long)buf, count, 0, 0, 0);
@@ -102,13 +119,72 @@ ssize_t write(fd_t fd, const void *buf, size_t count)
     return (ssize_t)__syscall(SYS_write, fd, (long)buf, count, 0, 0, 0);
 }
 
+int dup2(fd_t oldfd, fd_t newfd)
+{
+    return (int)__syscall(SYS_dup2, oldfd, newfd, 0, 0, 0, 0);
+}
+
+int pipe(fd_t pipefd[2])
+{
+    return (int)__syscall(SYS_pipe, (long)pipefd, 0, 0, 0, 0, 0);
+}
+
+/* ============================================================================
+ * Directory Operations
+ * ============================================================================ */
+
+int chdir(const char *path)
+{
+    return (int)__syscall(SYS_chdir, (long)path, 0, 0, 0, 0, 0);
+}
+
+char *getcwd(char *buf, size_t size)
+{
+    long ret = __syscall(SYS_getcwd, (long)buf, size, 0, 0, 0, 0);
+    return (ret >= 0) ? buf : NULL;
+}
+
+/* ============================================================================
+ * File Status
+ * ============================================================================ */
+
+struct stat {
+    unsigned int   st_dev;
+    unsigned int   st_ino;
+    unsigned short st_mode;
+    unsigned short st_nlink;
+    unsigned int   st_uid;
+    unsigned int   st_gid;
+    unsigned int   st_rdev;
+    long           st_size;
+    long           st_atimespec;
+    long           st_mtimespec;
+    long           st_ctimespec;
+    long           st_blksize;
+    long           st_blocks;
+};
+
+int stat(const char *pathname, struct stat *statbuf)
+{
+    return (int)__syscall(SYS_stat, (long)pathname, (long)statbuf, 0, 0, 0, 0);
+}
+
+int fstat(fd_t fd, struct stat *statbuf)
+{
+    return (int)__syscall(SYS_fstat, fd, (long)statbuf, 0, 0, 0, 0);
+}
+
+int isatty(fd_t fd)
+{
+    return (int)__syscall(SYS_isatty, fd, 0, 0, 0, 0, 0);
+}
+
 /* ============================================================================
  * Memory Management
  * ============================================================================ */
 
 void *malloc(size_t size)
 {
-    /* Simplified: just allocate from the heap end */
     extern char _end;
     static char *heap_ptr = &_end;
     
@@ -120,7 +196,6 @@ void *malloc(size_t size)
 
 void free(void *ptr)
 {
-    /* Minimal implementation: do nothing */
     (void)ptr;
 }
 
@@ -131,9 +206,8 @@ void *calloc(size_t nmemb, size_t size)
     
     if (ptr) {
         char *p = (char *)ptr;
-        for (size_t i = 0; i < total; i++) {
+        for (size_t i = 0; i < total; i++)
             p[i] = 0;
-        }
     }
     
     return ptr;
@@ -141,7 +215,6 @@ void *calloc(size_t nmemb, size_t size)
 
 void *realloc(void *ptr, size_t size)
 {
-    /* Simplified: allocate new, copy old */
     (void)ptr;
     return malloc(size);
 }
@@ -206,6 +279,104 @@ char *strchr(const char *s, int c)
     return NULL;
 }
 
+char *strrchr(const char *s, int c)
+{
+    const char *last = NULL;
+    while (*s) {
+        if (*s == (char)c)
+            last = s;
+        s++;
+    }
+    if (c == 0)
+        return (char *)s;
+    return (char *)last;
+}
+
+char *strdup(const char *s)
+{
+    size_t len = strlen(s) + 1;
+    char *dup = (char *)malloc(len);
+    if (dup)
+        strcpy(dup, s);
+    return dup;
+}
+
+char *strndup(const char *s, size_t n)
+{
+    size_t len = strlen(s);
+    if (len > n)
+        len = n;
+    char *dup = (char *)malloc(len + 1);
+    if (dup) {
+        strncpy(dup, s, len);
+        dup[len] = 0;
+    }
+    return dup;
+}
+
+/* GNU extension: safer string copy with length return */
+size_t strlcpy(char *dst, const char *src, size_t dstsize)
+{
+    size_t len = strlen(src);
+    if (dstsize > 0) {
+        size_t n = (len < dstsize - 1) ? len : dstsize - 1;
+        memcpy(dst, src, n);
+        dst[n] = 0;
+    }
+    return len;
+}
+
+/* GNU extension: safer string concatenation with length return */
+size_t strlcat(char *dst, const char *src, size_t dstsize)
+{
+    size_t dlen = strlen(dst);
+    size_t slen = strlen(src);
+    size_t len = dlen + slen;
+    
+    if (dlen < dstsize) {
+        size_t n = dstsize - dlen - 1;
+        if (n > slen)
+            n = slen;
+        memcpy(dst + dlen, src, n);
+        dst[dlen + n] = 0;
+    }
+    
+    return len;
+}
+
+char *strtok(char *str, const char *delim)
+{
+    static char *last = NULL;
+    
+    if (!str) {
+        str = last;
+        if (!str)
+            return NULL;
+    }
+    
+    while (*str && strchr(delim, *str))
+        str++;
+    
+    if (!*str) {
+        last = NULL;
+        return NULL;
+    }
+    
+    char *start = str;
+    
+    while (*str && !strchr(delim, *str))
+        str++;
+    
+    if (*str) {
+        *str++ = 0;
+        last = str;
+    } else {
+        last = NULL;
+    }
+    
+    return start;
+}
+
 /* ============================================================================
  * Memory Functions
  * ============================================================================ */
@@ -240,7 +411,6 @@ int memcmp(const void *s1, const void *s2, size_t n)
 
 void *memmove(void *dest, const void *src, size_t n)
 {
-    /* Simple but safe: always go byte-by-byte */
     unsigned char *d = (unsigned char *)dest;
     const unsigned char *s = (const unsigned char *)src;
     
@@ -256,7 +426,63 @@ void *memmove(void *dest, const void *src, size_t n)
 }
 
 /* ============================================================================
- * Null Definitions (for compatibility)
+ * Character Classification
+ * ============================================================================ */
+
+int isspace(int c)
+{
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
+}
+
+int isalpha(int c)
+{
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
+int isdigit(int c)
+{
+    return c >= '0' && c <= '9';
+}
+
+int isalnum(int c)
+{
+    return isalpha(c) || isdigit(c);
+}
+
+int tolower(int c)
+{
+    return (c >= 'A' && c <= 'Z') ? c - 'A' + 'a' : c;
+}
+
+int toupper(int c)
+{
+    return (c >= 'a' && c <= 'z') ? c - 'a' + 'A' : c;
+}
+
+/* ============================================================================
+ * Environment Variables
+ * ============================================================================ */
+
+extern char **environ;
+
+char *getenv(const char *name)
+{
+    if (!environ)
+        return NULL;
+    
+    size_t namelen = strlen(name);
+    
+    for (int i = 0; environ[i]; i++) {
+        if (strncmp(environ[i], name, namelen) == 0 && environ[i][namelen] == '=') {
+            return environ[i] + namelen + 1;
+        }
+    }
+    
+    return NULL;
+}
+
+/* ============================================================================
+ * C++ / Runtime Support
  * ============================================================================ */
 
 void *__dso_handle = NULL;

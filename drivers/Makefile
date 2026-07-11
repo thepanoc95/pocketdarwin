@@ -24,9 +24,11 @@ KERNEL_DIR  ?= $(ROOTDIR)/Kernel
 BUILDDIR    ?= $(ROOTDIR)/build
 BOARD       ?= harpia
 
-CROSS_COMPILE ?= arm-linux-gnueabihf-
-CC  ?= $(CROSS_COMPILE)gcc
-CXX ?= $(CROSS_COMPILE)g++
+DARWIN_CC := clang++ -target arm-apple-darwin11 -arch armv7
+
+CROSS_COMPILE ?= arm-apple-darwin11-
+CC  ?= $(DARWIN_CC)
+CXX ?= $(DARWIN_CC)
 LD  ?= $(CROSS_COMPILE)ld
 
 # Board-specific drivers (extend this for new boards)
