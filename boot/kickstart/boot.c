@@ -963,6 +963,8 @@ asm(
    STUB: ADDITIONAL BOARD DEFINITIONS
    ============================================================================ */
 
+   // NOTE: For now, only Qualcomm, Raspberry Pi, and Apple boards/devices are supported!!
+
 /* These are placeholders for adding support to other devices/boards.
  * To add a new platform:
  * 
