@@ -2,13 +2,15 @@ name: Sync GitHub changes back to Codeberg
 
 on:
   push:
-    branches: [ main, master ]  # Adjust to match your primary branch
+    branches: [ main, master ]  # Match your default branch
 
 jobs:
   sync-back:
-    # IMPORTANT: This line prevents an infinite loop. 
-    # It stops the action if the push came from Codeberg's mirroring bot.
-    if: github.actor != 'codeberg-mirror-bot-username-if-known' && !contains(github.event.head_commit.message, 'Codeberg')
+    # Run only if the commit wasn't a Codeberg mirror transfer
+    if: |
+      !contains(github.event.head_commit.message, '[skip ci]') && 
+      !contains(github.event.head_commit.message, 'gitea') &&
+      !contains(github.event.head_commit.message, 'codeberg')
     
     runs-on: ubuntu-latest
     steps:
@@ -19,9 +21,6 @@ jobs:
 
       - name: Push updates back to Codeberg
         run: |
-          # Configure a temporary remote for Codeberg using your secret token
-          git remote add codeberg https://${{ secrets.CODEBERG_TOKEN }}@codeberg.org/YOUR_CODEBERG_USERNAME/YOUR_REPO_NAME.git
-          
-          # Fetch Codeberg's state to prevent accidents, then push GitHub's current branch up
+          git remote add codeberg https://${{ secrets.CODEBERG_TOKEN }}@codeberg.org/thepanoc95/pocketdarwin.git
           git fetch codeberg
           git push codeberg HEAD:${{ github.ref_name }}
