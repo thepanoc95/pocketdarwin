@@ -23,6 +23,34 @@
 #include <stddef.h>
 #include <string.h>
 
+#ifndef SINGLE_FILE_BOOTLOADER_H
+#define SINGLE_FILE_BOOTLOADER_H
+
+void *memcpy(void *dest, const void *src, size_t n) {
+    uint8_t *d = (uint8_t *)dest;
+    const uint8_t *s = (const uint8_t *)src;
+    for (size_t i = 0; i < n; ++i) {
+        d[i] = s[i];
+    }
+    return dest;
+}
+
+void *memset(void *s, int c, size_t n) {
+    uint8_t *p = (uint8_t *)s;
+    for (size_t i = 0; i < n; ++i) {
+        p[i] = (uint8_t)c;
+    }
+    return s;
+}
+
+void *__aeabi_memcpy(void *dest, const void *src, size_t n) {
+    return memcpy(dest, src, n);
+}
+
+void *__aeabi_memset(void *s, size_t n, int c) {
+    return memset(s, c, n);
+}
+
 /* ============================================================================
    CONFIGURATION & PLATFORM DEFINITIONS
    ============================================================================ */
@@ -233,6 +261,10 @@ static inline void uart_putc(char c) {
 #endif
 }
 
+static inline void debug_putc(char c) {
+    uart_putc(c);
+}
+
 static void debug_print(const char *str) {
     while (*str) {
         uart_putc(*str++);
@@ -338,6 +370,11 @@ static int device_tree_set_chosen_display(uint8_t *dt_base,
                                           uint32_t width,
                                           uint32_t height,
                                           uint32_t stride) {
+    (void)fb_phys;
+    (void)width;
+    (void)height;
+    (void)stride;
+
     if (!dt_base) return -1;
     
     device_tree_header_t *header = (device_tree_header_t *)dt_base;
@@ -347,7 +384,7 @@ static int device_tree_set_chosen_display(uint8_t *dt_base,
     }
     
     debug_print("[DT] Device tree found at 0x");
-    debug_hex((uint64_t)dt_base, 8);
+    debug_hex((uint64_t)(uintptr_t)dt_base, 8);
     debug_print(", size: ");
     debug_hex(header->size, 4);
     debug_print("\n");
@@ -471,20 +508,15 @@ static kernel_info_t macho_load(uint8_t *image_base, size_t image_size) {
     
     /* Detect architecture and endianness */
     uint32_t is_64bit = 0;
-    uint32_t needs_swap = 0;
     
     if (header->magic == MH_MAGIC_64) {
         is_64bit = 1;
-        needs_swap = 0;
     } else if (header->magic == MH_MAGIC) {
         is_64bit = 0;
-        needs_swap = 0;
     } else if (header->magic == MH_CIGAM_64) {
         is_64bit = 1;
-        needs_swap = 1;
     } else if (header->magic == MH_CIGAM) {
         is_64bit = 0;
-        needs_swap = 1;
     } else {
         debug_print("[MACHO] Invalid magic: 0x");
         debug_hex(header->magic, 8);
@@ -529,7 +561,7 @@ static kernel_info_t macho_load(uint8_t *image_base, size_t image_size) {
             
             /* Load segment data */
             if (seg->filesize > 0) {
-                uint8_t *dest = (uint8_t *)seg->vmaddr;
+                uint8_t *dest = (uint8_t *)(uintptr_t)seg->vmaddr;
                 uint8_t *src = image_base + seg->fileoff;
                 memcpy(dest, src, seg->filesize);
                 
@@ -551,7 +583,7 @@ static kernel_info_t macho_load(uint8_t *image_base, size_t image_size) {
             debug_print("\n");
             
             if (seg->filesize > 0) {
-                uint8_t *dest = (uint8_t *)seg->vmaddr;
+                uint8_t *dest = (uint8_t *)(uintptr_t)seg->vmaddr;
                 uint8_t *src = image_base + seg->fileoff;
                 memcpy(dest, src, seg->filesize);
                 
@@ -563,7 +595,7 @@ static kernel_info_t macho_load(uint8_t *image_base, size_t image_size) {
         } else if (cmd->cmd == LC_MAIN || cmd->cmd == LC_UNIXTHREAD) {
             if (cmd->cmd == LC_MAIN) {
                 entry_point_command_t *ep = (entry_point_command_t *)cmd;
-                info.entry_point = (uint64_t)image_base + ep->entry_off;
+                info.entry_point = (uint64_t)((uintptr_t)image_base + ep->entry_off);
                 debug_print("[MACHO] Entry point (LC_MAIN): 0x");
                 debug_hex(info.entry_point, 16);
                 debug_print("\n");
@@ -871,7 +903,7 @@ void bootloader_main(void) {
 #else
     /* ARM32 kernel entry - r0=device tree, r1=machine type, r2=atags/fdt */
     typedef void (*kernel_entry_arm32_t)(uint32_t, uint32_t, uint32_t);
-    kernel_entry_arm32_t entry = (kernel_entry_arm32_t)kernel.entry_point;
+    kernel_entry_arm32_t entry = (kernel_entry_arm32_t)(uintptr_t)kernel.entry_point;
     entry((uint32_t)DEVICE_TREE_BASE, 0, (uint32_t)DEVICE_TREE_BASE);
 #endif
     

@@ -1,1 +1,0 @@
-#define LIBPNG_PRESENT 1

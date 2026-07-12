@@ -1,13 +1,11 @@
-#ifndef _ANDROID_PLATFORM_DEVICE_H
-#define _ANDROID_PLATFORM_DEVICE_H
+#ifndef _ANDROID_PLATFORM_DEVICE_HPP
+#define _ANDROID_PLATFORM_DEVICE_HPP
 
-#include <IOKit/IOService.h>
-#include <IOKit/IOMemoryDescriptor.h>
-#include <IOKit/IOInterrupts.h>
-#include <libkern/c++/OSDictionary.h>
-#include <libkern/c++/OSString.h>
-#include <libkern/c++/OSArray.h>
-#include <libkern/c++/OSNumber.h>
+// Include shim BEFORE any IOKit headers to provide our definitions
+#include "IOKitShim.h"
+
+// Skip the real IOKit headers entirely - we have our own shims
+// The real headers require XNU kernel headers that aren't available on Linux
 
 /*
  * Property keys used in the Apple Device Tree for Android peripherals.
@@ -51,17 +49,17 @@ public:
 
     /* Probe: called when the matching system finds a candidate device.
      * Return a non-zero score; higher = more confident match. */
-    IOService* probe(IOService* provider, SInt32* score) override;
+    IOService* probe(IOService* provider, SInt32* score);
 
     /* Start: called when this driver is selected to drive the device.
      * Map register space, register interrupts, enable clocks. */
-    bool start(IOService* provider) override;
+    bool start(IOService* provider);
 
     /* Stop: called before this driver is detached. Cleanup here. */
-    void stop(IOService* provider) override;
+    void stop(IOService* provider);
 
     /* Free: release all resources. Called when retain count hits zero. */
-    void free() override;
+    void free(void);
 
     /* --- Hardware access helpers --- */
 
@@ -148,4 +146,4 @@ protected:
     OSArray*             fClockNames;
 };
 
-#endif /* _ANDROID_PLATFORM_DEVICE_H */
+#endif /* _ANDROID_PLATFORM_DEVICE_HPP */

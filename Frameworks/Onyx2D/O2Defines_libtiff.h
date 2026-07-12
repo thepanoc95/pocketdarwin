@@ -1,1 +1,0 @@
-#define LIBTIFF_PRESENT 1

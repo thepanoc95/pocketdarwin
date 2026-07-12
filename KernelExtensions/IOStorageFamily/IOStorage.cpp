@@ -183,6 +183,23 @@ bool IOStorage::attach(IOService * provider)
 }
 #endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
+#if TARGET_OS_OSX && defined(__armv7__)
+bool IOStorage::attach(IOService * provider)
+{
+    if ( super::attach( provider ) == false )
+    {
+        return false;
+    }
+
+    if ( storageSynchronizeOptions( this ) == false )
+    {
+        _respondsTo_synchronizeCache = kIOStorageSynchronizeOptionsUnsupported;
+    }
+
+    return true;
+}
+#endif // TARGET_OS_OSX && defined(__armv7__)
+
 void IOStorage::complete(IOStorageCompletion * completion,
                          IOReturn              status,
                          UInt64                actualByteCount)

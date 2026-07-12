@@ -26,7 +26,7 @@ CRT_O = crt0.o
 all: $(CRT_O) $(MINLIBC_A)
 
 # Build crt0.o
-crt0.o: crt0.s
+crt0.o: crt.s
 	$(AS) $(ASFLAGS) -o $@ $<
 
 # Build libc.o

@@ -30,7 +30,7 @@ BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo nogit)
 TARGET := kickstart_loader_$(COMMIT)_$(BRANCH).$(EXT)
 
 # Files
-SRC     := xnu_bootloader.c
+SRC     := boot.c
 OBJ     := xnu_bootloader.o
 LINKER  := linker.ld
 
@@ -72,6 +72,7 @@ endif
 LDFLAGS := \
     -nostdlib \
     -nostartfiles \
+    -no-pie \
     -T $(LINKER)
 
 # ============================================================================
