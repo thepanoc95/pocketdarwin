@@ -11,8 +11,7 @@ OSDefineMetaClassAndStructors(AndroidPlatformDevice, IOService)
 
 #if ANDROID_DEBUG
 #define DLOG(fmt, ...) \
-    kprintf("[AndroidPlatformDevice] %s: " fmt "\n", \
-            fName ? fName->getCStringNoCopy() : "?", ##__VA_ARGS__)
+    kprintf("[AndroidPlatformDevice] " fmt "\n", ##__VA_ARGS__)
 #else
 #define DLOG(fmt, ...)
 #endif
@@ -294,12 +293,12 @@ IOReturn AndroidPlatformDevice::registerInterrupt(int index,
      * On MSM8916 with GIC v2, the interrupt index maps directly to the
      * SPI (Shared Peripheral Interrupt) number from the device tree. */
     IOReturn ret = IOService::registerInterrupt(
-        provider,   /* provider service */
-        index,      /* interrupt source index */
-        handler,    /* handler function */
-        target,     /* target object */
-        refcon,     /* user refcon */
-        0           /* options */
+        this,
+        index,
+        handler,
+        target,
+        refcon,
+        0
     );
 
     if (ret == kIOReturnSuccess) {

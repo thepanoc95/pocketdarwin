@@ -64,7 +64,6 @@ all: $(CRT_O) $(MINLIBC_A) install wrappers
 # Build crt0.o
 crt0.o: crt.S
 	$(CC) $(ASFLAGS) -c -o $@ $<
-
 # Build libc.o
 libc.o: libc.c
 	$(CC) $(CFLAGS) -c -o $@ $<

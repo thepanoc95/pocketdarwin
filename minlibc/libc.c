@@ -537,6 +537,69 @@ char *getenv(const char *name)
 }
 
 /* ============================================================================
+ * Memory Management - Paging
+ * ============================================================================ */
+
+void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
+{
+    return (void *)__syscall(SYS_mmap2, (long)addr, length, prot, flags, fd, offset >> 12);
+}
+
+int munmap(void *addr, size_t length)
+{
+    return (int)__syscall(SYS_munmap, (long)addr, length, 0, 0, 0, 0);
+}
+
+int mprotect(void *addr, size_t length, int prot)
+{
+    return (int)__syscall(SYS_mprotect, (long)addr, length, prot, 0, 0, 0);
+}
+
+/* ============================================================================
+ * Advanced File Operations
+ * ============================================================================ */
+
+off_t lseek(int fd, off_t offset, int whence)
+{
+    return (off_t)__syscall(SYS_lseek, fd, offset, whence, 0, 0, 0);
+}
+
+int access(const char *pathname, int mode)
+{
+    return (int)__syscall(SYS_access, (long)pathname, mode, 0, 0, 0, 0);
+}
+
+uid_t getuid(void)
+{
+    return (uid_t)__syscall(SYS_getuid, 0, 0, 0, 0, 0, 0);
+}
+
+uid_t geteuid(void)
+{
+    return (uid_t)__syscall(SYS_geteuid, 0, 0, 0, 0, 0, 0);
+}
+
+gid_t getgid(void)
+{
+    return (gid_t)__syscall(SYS_getgid, 0, 0, 0, 0, 0, 0);
+}
+
+gid_t getegid(void)
+{
+    return (gid_t)__syscall(SYS_getegid, 0, 0, 0, 0, 0, 0);
+}
+
+int setuid(uid_t uid)
+{
+    return (int)__syscall(SYS_setuid, uid, 0, 0, 0, 0, 0);
+}
+
+int setgid(gid_t gid)
+{
+    return (int)__syscall(SYS_setgid, gid, 0, 0, 0, 0, 0);
+}
+
+/* ============================================================================
  * C++ / Runtime Support
  * ============================================================================ */
 
@@ -567,3 +630,7 @@ int main(int argc, char *argv[], char *envp[])
     (void)envp;
     return 0;
 }
+
+#ifdef defined(__APPLE__) || defined(__DARWIN__)
+
+#endif
