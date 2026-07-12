@@ -1,6 +1,6 @@
 /*
  * minlibc - Portable C Runtime
- * ARM EABI (eabihf) support
+ * ARM EABI (eabihf), i386, x86_64 support
  * 
  * libc_portable.c: Cross-platform libc (Linux, FreeBSD, macOS)
  * Uses syscall_compat.h for platform-specific syscall numbers
@@ -8,19 +8,67 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "syscall_compat.h"
+#include <syscall_compat.h>
+
+/* Forward declarations */
+void *memcpy(void *dest, const void *src, size_t n);
 
 /* ============================================================================
- * ARM EABI Syscall Interface
+ * Syscall Interface
  * ============================================================================
- * 
- * Consistent across Linux, BSD, and macOS ARM EABI:
- * - r7: syscall number
- * - r0-r3: arguments
- * - svc 0: invoke syscall
+ *
+ * ARM EABI:  r7=syscall#, r0-r3=args, svc 0
+ * x86_64:    rax=syscall#, rdi/rsi/rdx/r10/r8/r9=args, syscall
+ * i386:      eax=syscall#, ebx/ecx/edx/esi/edi/ebp=args, int $0x80
  */
 
-static inline long __syscall(long num, long a1, long a2, long a3, 
+#if defined(__x86_64__)
+
+static inline long __syscall(long num, long a1, long a2, long a3,
+                              long a4, long a5, long a6)
+{
+#if defined(MINLIBC_APPLE) && !defined(MINLIBC_DARLING)
+    num += 0x2000000;
+#endif
+    register long r10 asm("r10") = a4;
+    register long r8 asm("r8") = a5;
+    register long r9 asm("r9") = a6;
+
+    asm volatile("syscall"
+                 : "+a"(num)
+                 : "D"(a1), "S"(a2), "d"(a3), "r"(r10), "r"(r8), "r"(r9)
+                 : "rcx", "r11", "memory");
+
+    return num;
+}
+
+#elif defined(__i386__)
+
+static inline long __syscall(long num, long a1, long a2, long a3,
+                              long a4, long a5, long a6)
+{
+#if defined(MINLIBC_APPLE) && !defined(MINLIBC_DARLING)
+    num += 0x2000000;
+#endif
+    register long ebx asm("ebx") = a1;
+    register long ecx asm("ecx") = a2;
+    register long edx asm("edx") = a3;
+    register long esi asm("esi") = a4;
+    register long edi asm("edi") = a5;
+    register long ebp asm("ebp") = a6;
+
+    asm volatile("int $0x80"
+                 : "+a"(num)
+                 : "r"(ebx), "r"(ecx), "r"(edx),
+                   "r"(esi), "r"(edi), "r"(ebp)
+                 : "memory");
+
+    return num;
+}
+
+#else /* ARM EABI */
+
+static inline long __syscall(long num, long a1, long a2, long a3,
                               long a4, long a5, long a6)
 {
     register long r7 asm("r7") = num;
@@ -36,6 +84,8 @@ static inline long __syscall(long num, long a1, long a2, long a3,
     
     return r0;
 }
+
+#endif
 
 /* ============================================================================
  * Type Definitions
@@ -176,7 +226,12 @@ int fstat(fd_t fd, struct stat *statbuf)
 
 int isatty(fd_t fd)
 {
+#ifdef MINLIBC_APPLE
     return (int)__syscall(SYS_isatty, fd, 0, 0, 0, 0, 0);
+#else
+    unsigned int dummy;
+    return (int)__syscall(SYS_ioctl, fd, 0x540D /* TIOCGPGRP */, (long)&dummy, 0, 0, 0) == 0;
+#endif
 }
 
 /* ============================================================================
@@ -463,7 +518,7 @@ int toupper(int c)
  * Environment Variables
  * ============================================================================ */
 
-extern char **environ;
+char **environ = (char **)0;
 
 char *getenv(const char *name)
 {
@@ -504,6 +559,7 @@ void __cxa_finalize(void *dso)
  * Weak main() stub (user code should override)
  * ============================================================================ */
 
+__attribute__((weak))
 int main(int argc, char *argv[], char *envp[])
 {
     (void)argc;

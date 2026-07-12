@@ -1,7 +1,7 @@
-#include <stdio.h>
+#include <unistd.h>
 
 int main()
 {
-    printf("Hello from minlibc!\n");
+    write(1, "Hello from minlibc!\n", 20);
     return 0;
 }
