@@ -3,10 +3,10 @@
 #import <UIKit/UIEvent.h>
 
 @class UIWindow;
-@class UIApplicationDelegate;
 @class UIViewController;
 @class UIRemoteNotification;
-@class UIUserNotificationSettings;
+
+@protocol UIApplicationDelegate;
 
 typedef NSInteger UIApplicationState;
 
@@ -33,6 +33,65 @@ enum {
     UIRemoteNotificationTypeAlert   = 1 << 2,
     UIRemoteNotificationTypeNewsstandContentAvailability = 1 << 3,
 };
+
+typedef NSInteger UIStatusBarStyle;
+
+enum {
+    UIStatusBarStyleDefault,
+    UIStatusBarStyleLightContent,
+    UIStatusBarStyleDarkContent,
+};
+
+typedef NSInteger UIStatusBarAnimation;
+
+enum {
+    UIStatusBarAnimationNone,
+    UIStatusBarAnimationFade,
+    UIStatusBarAnimationSlide,
+};
+
+typedef NSInteger UIInterfaceOrientation;
+
+enum {
+    UIInterfaceOrientationUnknown            = 0,
+    UIInterfaceOrientationPortrait           = 1,
+    UIInterfaceOrientationPortraitUpsideDown = 2,
+    UIInterfaceOrientationLandscapeLeft      = 4,
+    UIInterfaceOrientationLandscapeRight     = 3,
+};
+
+typedef NSInteger UIInterfaceOrientationMask;
+
+enum {
+    UIInterfaceOrientationMaskPortrait       = (1 << UIInterfaceOrientationPortrait),
+    UIInterfaceOrientationMaskLandscapeLeft  = (1 << UIInterfaceOrientationLandscapeLeft),
+    UIInterfaceOrientationMaskLandscapeRight = (1 << UIInterfaceOrientationLandscapeRight),
+    UIInterfaceOrientationMaskPortraitUpsideDown = (1 << UIInterfaceOrientationPortraitUpsideDown),
+    UIInterfaceOrientationMaskLandscape      = (UIInterfaceOrientationMaskLandscapeLeft | UIInterfaceOrientationMaskLandscapeRight),
+    UIInterfaceOrientationMaskAll            = (UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskLandscapeLeft | UIInterfaceOrientationMaskLandscapeRight | UIInterfaceOrientationMaskPortraitUpsideDown),
+    UIInterfaceOrientationMaskAllButUpsideDown = (UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskLandscapeLeft | UIInterfaceOrientationMaskLandscapeRight),
+};
+
+typedef NSInteger UIBackgroundTaskIdentifier;
+typedef NSInteger UIBackgroundFetchResult;
+
+enum {
+    UIBackgroundFetchResultNewData,
+    UIBackgroundFetchResultNoData,
+    UIBackgroundFetchResultFailed,
+};
+
+typedef NSUInteger UIUserNotificationType;
+
+enum {
+    UIUserNotificationTypeNone    = 0,
+    UIUserNotificationTypeBadge   = 1 << 0,
+    UIUserNotificationTypeSound   = 1 << 1,
+    UIUserNotificationTypeAlert   = 1 << 2,
+};
+
+@class UIUserNotificationSettings;
+@class UILocalNotification;
 
 @interface UIApplication : UIResponder {
     UIWindow *_keyWindow;
@@ -73,8 +132,7 @@ enum {
 
 - (BOOL)openURL:(NSURL *)url;
 - (BOOL)openURL:(NSURL *)url options:(NSDictionary *)options completionHandler:(void (^)(BOOL success))completion;
-
-@property (nonatomic, readonly) BOOL canOpenURL:(NSURL *)url;
+- (BOOL)canOpenURL:(NSURL *)url;
 
 - (void)registerForRemoteNotificationTypes:(UIRemoteNotificationType)types;
 - (UIRemoteNotificationType)enabledRemoteNotificationTypes;
@@ -110,8 +168,6 @@ enum {
 @property (nonatomic, readonly) UIUserInterfaceLayoutDirection userInterfaceLayoutDirection;
 
 @property (nonatomic, strong) UIViewController *rootViewController;
-
-@property (nonatomic, strong) UIWindow *keyWindow;
 
 - (void)beginReceivingRemoteControlEvents;
 - (void)endReceivingRemoteControlEvents;
@@ -159,53 +215,6 @@ enum {
 
 @end
 
-typedef NSInteger UIBackgroundTaskIdentifier;
-typedef NSInteger UIBackgroundFetchResult;
-
-enum {
-    UIBackgroundFetchResultNewData,
-    UIBackgroundFetchResultNoData,
-    UIBackgroundFetchResultFailed,
-};
-
-typedef NSInteger UIStatusBarStyle;
-
-enum {
-    UIStatusBarStyleDefault,
-    UIStatusBarStyleLightContent,
-    UIStatusBarStyleDarkContent,
-};
-
-typedef NSInteger UIStatusBarAnimation;
-
-enum {
-    UIStatusBarAnimationNone,
-    UIStatusBarAnimationFade,
-    UIStatusBarAnimationSlide,
-};
-
-typedef NSInteger UIInterfaceOrientation;
-
-enum {
-    UIInterfaceOrientationUnknown            = 0,
-    UIInterfaceOrientationPortrait           = 1,
-    UIInterfaceOrientationPortraitUpsideDown = 2,
-    UIInterfaceOrientationLandscapeLeft      = 4,
-    UIInterfaceOrientationLandscapeRight     = 3,
-};
-
-typedef NSInteger UIInterfaceOrientationMask;
-
-enum {
-    UIInterfaceOrientationMaskPortrait       = (1 << UIInterfaceOrientationPortrait),
-    UIInterfaceOrientationMaskLandscapeLeft  = (1 << UIInterfaceOrientationLandscapeLeft),
-    UIInterfaceOrientationMaskLandscapeRight = (1 << UIInterfaceOrientationLandscapeRight),
-    UIInterfaceOrientationMaskPortraitUpsideDown = (1 << UIInterfaceOrientationPortraitUpsideDown),
-    UIInterfaceOrientationMaskLandscape      = (UIInterfaceOrientationMaskLandscapeLeft | UIInterfaceOrientationMaskLandscapeRight),
-    UIInterfaceOrientationMaskAll            = (UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskLandscapeLeft | UIInterfaceOrientationMaskLandscapeRight | UIInterfaceOrientationMaskPortraitUpsideDown),
-    UIInterfaceOrientationMaskAllButUpsideDown = (UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskLandscapeLeft | UIInterfaceOrientationMaskLandscapeRight),
-};
-
 @interface UILocalNotification : NSObject
 
 @property (nonatomic, copy) NSDate *fireDate;
@@ -224,7 +233,10 @@ enum {
 
 @end
 
-@interface UIUserNotificationSettings : NSObject
+@interface UIUserNotificationSettings : NSObject {
+    UIUserNotificationType _types;
+    NSSet *_categories;
+}
 
 + (UIUserNotificationSettings *)settingsForTypes:(UIUserNotificationType)types categories:(NSSet *)categories;
 
@@ -232,12 +244,3 @@ enum {
 @property (nonatomic, readonly, copy) NSSet *categories;
 
 @end
-
-typedef NSUInteger UIUserNotificationType;
-
-enum {
-    UIUserNotificationTypeNone    = 0,
-    UIUserNotificationTypeBadge   = 1 << 0,
-    UIUserNotificationTypeSound   = 1 << 1,
-    UIUserNotificationTypeAlert   = 1 << 2,
-};

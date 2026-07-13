@@ -1,9 +1,13 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKitExport.h>
+#import <UIKit/UIGeometry.h>
 #import <CoreGraphics/CGGeometry.h>
 #import <CoreGraphics/CGImage.h>
+#import <CoreGraphics/CGContext.h>
 
 @class UIImageAsset;
+@class UITraitCollection;
+@class UIColor;
 
 typedef CGFloat UIImageResizingMode;
 

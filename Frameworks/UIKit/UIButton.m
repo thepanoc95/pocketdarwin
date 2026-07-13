@@ -5,6 +5,7 @@
 #import <UIKit/UIColor.h>
 #import <UIKit/UIFont.h>
 #import <UIKit/UIEvent.h>
+#import <UIKit/UIStringDrawing.h>
 
 @interface UIButton ()
 - (UIControlState)_currentState;

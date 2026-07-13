@@ -5,6 +5,8 @@
 @class UIFont;
 @class UIImage;
 @class UILabel;
+@class UIImageView;
+@class NSAttributedString;
 
 typedef NSInteger UIButtonType;
 
@@ -145,7 +147,7 @@ enum {
 @property (nonatomic, readonly) UIImage *currentBackgroundImage;
 @property (nonatomic, readonly) NSAttributedString *currentAttributedTitle;
 
-@property (nonatomic) UIFont *font;
+@property (nonatomic, retain) UIFont *font;
 
 - (void)addTarget:(id)target action:(SEL)action forControlEvents:(UIControlEvents)controlEvents;
 - (void)removeTarget:(id)target action:(SEL)action forControlEvents:(UIControlEvents)controlEvents;

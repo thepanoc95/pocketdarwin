@@ -3,6 +3,7 @@
 
 @class UIColor;
 @class UIFont;
+@class NSAttributedString;
 
 typedef NSInteger NSTextAlignment;
 
@@ -35,6 +36,7 @@ enum {
 
 @interface UILabel : UIView {
     NSString *_text;
+    NSAttributedString *_attributedText;
     UIFont *_font;
     UIColor *_textColor;
     UIColor *_shadowColor;
@@ -51,7 +53,6 @@ enum {
     BOOL _adjustsLetterSpacingToFitWidth;
     BOOL _baselineAdjustment;
     CGFloat _minimumFontSize;
-    BOOL _adjustsFontSizeToFitWidth;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame;

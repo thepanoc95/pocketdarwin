@@ -2,10 +2,12 @@
 #import <UIKit/UIKitExport.h>
 
 @class UITableViewCell;
+@class UITableView;
 @class UITableViewHeaderFooterView;
 @class NSIndexPath;
 @class UIRefreshControl;
 @class UIDataSourceModelAssociation;
+@class UINib;
 
 typedef NSInteger UITableViewStyle;
 

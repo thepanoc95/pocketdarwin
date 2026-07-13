@@ -78,7 +78,7 @@ struct UIEdgeInsets {
     CGFloat bottom;
     CGFloat right;
 };
-typedef struct UIDgeInsets UIEdgeInsets;
+typedef struct UIEdgeInsets UIEdgeInsets;
 
 static inline UIEdgeInsets UIEdgeInsetsMake(CGFloat top, CGFloat left, CGFloat bottom, CGFloat right) {
     UIEdgeInsets insets = {top, left, bottom, right};

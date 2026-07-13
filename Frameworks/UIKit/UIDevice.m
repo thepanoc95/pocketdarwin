@@ -123,8 +123,4 @@ static UIDevice *currentDevice = nil;
 - (void)playInputClick {
 }
 
-- (float)systemVersion {
-    return [_systemVersion floatValue];
-}
-
 @end

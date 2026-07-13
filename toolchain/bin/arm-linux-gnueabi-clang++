@@ -1,30 +1,50 @@
 #!/bin/bash
-skip_next=0
-args=()
+# XNU Clang++ wrapper for ARM (AArch32) cross-compilation on Linux.
+CLANG=/usr/bin/clang++
+COMPAT_HEADER="/home/milo/Documents/PocketDarwin/BuildHost/xnu-deps-linux/include/_xnu_compat.h"
+SKIP=0
+ARGS=()
+TARGET_SET=0
+IS_PREPROC=0
+HAS_S_FILE=0
+MARCH=""
+
 for arg in "$@"; do
-    if [ $skip_next -eq 1 ]; then
-        skip_next=0
+    if [ "$SKIP" -gt 0 ]; then
+        SKIP=$((SKIP - 1))
         case "$arg" in
-            armv7|armv7s) args+=(-march=armv7-a) ;;
-            armv6|armv6k) args+=(-march=armv6) ;;
-            arm64)        args+=(-march=armv8-a) ;;
-            *)            ;;
+            armv7)  MARCH="-march=armv7-a" ;;
+            armv6)  MARCH="-march=armv6"   ;;
+            arm64)  ;;
         esac
         continue
     fi
-    if [ "$arg" = "-arch" ]; then
-        skip_next=1
-        continue
-    fi
     case "$arg" in
-        -mthumb|-mthumb-interwork)
-            continue
-            ;;
-        -arch)
-            skip_next=1
-            continue
-            ;;
+        -arch)     SKIP=1 ;;
+        -isysroot|-iframeworkwithsysroot|-iframework) SKIP=1 ;;
+        -Wextra-tokens) ;;
+        -Wno-deprecated-non-prototype|-Wno-unknown-warning-option|-Wno-nullability-completeness|-Wno-unknown-attributes) ;;
+        -Wno-poison-system-directories) ;;
+        -Wno-objc-*) ;;
+        -fno-objc-arc) ;;
+        -E) IS_PREPROC=1; ARGS+=("$arg") ;;
+        -target) TARGET_SET=1; ARGS+=("$arg") ;;
+        *.s) HAS_S_FILE=1; ARGS+=("$arg") ;;
+        *) ARGS+=("$arg") ;;
     esac
-    args+=("$arg")
 done
-exec /home/oaky/.local/share/swiftly/bin/clang++ -target arm-linux-gnueabi "${args[@]}"
+
+TOOLCHAIN_DIR="/home/milo/Documents/PocketDarwin/toolchain/bin"
+if [ "$TARGET_SET" -eq 0 ]; then
+    if [ "$IS_PREPROC" -eq 0 ] && [ "$HAS_S_FILE" -eq 0 ]; then
+        ARGS=("--target=arm-linux-gnueabi" "-fdeclspec" "-B" "$TOOLCHAIN_DIR" "-include" "$COMPAT_HEADER" $MARCH "${ARGS[@]}")
+    else
+        ARGS=("--target=arm-linux-gnueabi" "-B" "$TOOLCHAIN_DIR" $MARCH "${ARGS[@]}")
+    fi
+fi
+
+if [ "$HAS_S_FILE" -eq 1 ]; then
+    ARGS=("-x" "assembler-with-cpp" "${ARGS[@]}")
+fi
+
+exec "$CLANG" "${ARGS[@]}"

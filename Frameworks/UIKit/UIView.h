@@ -9,6 +9,15 @@
 @class UIMotionEffect;
 @class UIViewController;
 @class UIWindow;
+@class NSLayoutConstraint;
+
+@protocol UIAppearance @end
+@protocol UIAppearanceContainer @end
+@protocol UIDynamicItem @end
+
+typedef uint64_t UIAccessibilityTraits;
+typedef NSInteger UIViewKeyframeAnimationOptions;
+typedef NSInteger UISystemAnimation;
 
 typedef NSInteger UIViewContentMode;
 
@@ -120,6 +129,9 @@ enum {
     BOOL _masksToBounds;
     CGFloat _borderWidth;
     UIColor *_borderColor;
+    BOOL _clearsContextBeforeDrawing;
+    BOOL _preservesSuperviewLayoutMargins;
+    BOOL _translatesAutoresizingMaskIntoConstraints;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame;
@@ -152,7 +164,6 @@ enum {
 @property (nonatomic, copy) UIColor *backgroundColor;
 @property (nonatomic, copy) UIColor *tintColor;
 @property (nonatomic) UIViewTintAdjustmentMode tintAdjustmentMode;
-@property (nonatomic, readonly, strong) UIColor *tintColor;
 
 @property (nonatomic) NSInteger tag;
 

@@ -18,7 +18,6 @@
         _delayedTouches = nil;
         _recognizersToWaitFor = [[NSMutableArray alloc] init];
         _recognizersToFailFor = [[NSMutableArray alloc] init];
-        _numberOfTouchesRequired = 1;
         _requiresExclusiveTouchType = NO;
     }
     return self;

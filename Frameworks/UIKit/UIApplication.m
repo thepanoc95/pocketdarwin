@@ -85,8 +85,10 @@ static UIApplication *sharedApplication = nil;
 
 - (BOOL)sendAction:(SEL)action to:(id)target from:(id)sender forEvent:(UIEvent *)event {
     if (target)
-        return [target performSelector:action withObject:sender];
-    return [[self keyWindow] performSelector:action withObject:sender];
+        [target performSelector:action withObject:sender];
+    else
+        [[self keyWindow] performSelector:action withObject:sender];
+    return YES;
 }
 
 - (BOOL)isNetworkActivityIndicatorVisible {

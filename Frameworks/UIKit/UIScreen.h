@@ -10,6 +10,7 @@
     CGFloat _scale;
     CGFloat _brightness;
     BOOL _wantsSoftwareDimming;
+    NSInteger _maximumFramesPerSecond;
 }
 
 + (UIScreen *)mainScreen;

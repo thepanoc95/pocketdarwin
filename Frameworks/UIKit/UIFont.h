@@ -1,6 +1,24 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKitExport.h>
+#import <UIKit/UIGeometry.h>
 #import <CoreGraphics/CGGeometry.h>
+#import <CoreGraphics/CGAffineTransform.h>
+
+typedef NSInteger UIFontDescriptorSymbolicTraits;
+
+enum {
+    UIFontDescriptorTraitItalic       = 1u << 0,
+    UIFontDescriptorTraitBold         = 1u << 1,
+    UIFontDescriptorTraitExpanded     = 1u << 5,
+    UIFontDescriptorTraitCondensed    = 1u << 6,
+    UIFontDescriptorTraitMonoSpace    = 1u << 10,
+    UIFontDescriptorTraitVertical     = 1u << 11,
+    UIFontDescriptorTraitUIOptimized  = 1u << 12,
+    UIFontDescriptorTraitTightLeading = 1u << 15,
+    UIFontDescriptorTraitLooseLeading = 1u << 16,
+};
+
+@class UIFontDescriptor;
 
 @interface UIFont : NSObject {
     NSString *_fontName;
@@ -58,7 +76,10 @@ UIKIT_EXPORT NSString *const UIFontTextStyleLargeTitle;
 
 @end
 
-@interface UIFontDescriptor : NSObject
+@interface UIFontDescriptor : NSObject {
+    UIFontDescriptorSymbolicTraits _symbolicTraits;
+    NSDictionary *_fontAttributes;
+}
 
 + (UIFontDescriptor *)fontDescriptorWithFontAttributes:(NSDictionary *)attributes;
 + (UIFontDescriptor *)fontDescriptorWithName:(NSString *)fontName size:(CGFloat)size;
@@ -78,20 +99,6 @@ UIKIT_EXPORT NSString *const UIFontTextStyleLargeTitle;
 - (id)objectForKey:(NSString *)anAttribute;
 
 @end
-
-typedef NSInteger UIFontDescriptorSymbolicTraits;
-
-enum {
-    UIFontDescriptorTraitItalic       = 1u << 0,
-    UIFontDescriptorTraitBold         = 1u << 1,
-    UIFontDescriptorTraitExpanded     = 1u << 5,
-    UIFontDescriptorTraitCondensed    = 1u << 6,
-    UIFontDescriptorTraitMonoSpace    = 1u << 10,
-    UIFontDescriptorTraitVertical     = 1u << 11,
-    UIFontDescriptorTraitUIOptimized  = 1u << 12,
-    UIFontDescriptorTraitTightLeading = 1u << 15,
-    UIFontDescriptorTraitLooseLeading = 1u << 16,
-};
 
 UIKIT_EXPORT NSString *const UIFontDescriptorFamilyAttribute;
 UIKIT_EXPORT NSString *const UIFontDescriptorNameAttribute;

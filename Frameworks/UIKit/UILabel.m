@@ -1,6 +1,7 @@
 #import <UIKit/UILabel.h>
 #import <UIKit/UIFont.h>
 #import <UIKit/UIColor.h>
+#import <UIKit/UIStringDrawing.h>
 
 @implementation UILabel
 

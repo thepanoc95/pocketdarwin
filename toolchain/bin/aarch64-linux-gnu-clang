@@ -1,0 +1,70 @@
+#!/bin/bash
+# XNU Clang wrapper for ARM64 (AArch64) cross-compilation on Linux.
+# Translates Apple -arch flags to LLVM Clang equivalents.
+CLANG=/usr/bin/clang
+COMPAT_HEADER="/home/milo/Documents/PocketDarwin/BuildHost/xnu-deps-linux/include/_xnu_compat.h"
+SKIP=0
+ARGS=()
+TARGET_SET=0
+IS_PREPROC=0
+HAS_S_FILE=0
+
+for arg in "$@"; do
+    if [ "$SKIP" -gt 0 ]; then
+        SKIP=$((SKIP - 1))
+        continue
+    fi
+    case "$arg" in
+        -arch)
+            SKIP=1
+            ;;
+        -arch=*)
+            ;;
+        -isysroot|-iframeworkwithsysroot|-iframework)
+            SKIP=1
+            ;;
+        -F*)
+            ;;
+        -Xclang*)
+            ;;
+        -Wextra-tokens)
+            ;;
+        -Wno-deprecated-non-prototype|-Wno-unknown-warning-option|-Wno-nullability-completeness|-Wno-unknown-attributes)
+            ;;
+        -Wno-poison-system-directories)
+            ;;
+        -Wno-objc-*)
+            ;;
+        -fno-objc-arc)
+            ;;
+        -E)
+            IS_PREPROC=1
+            ARGS+=("$arg")
+            ;;
+        -target)
+            TARGET_SET=1
+            ARGS+=("$arg")
+            ;;
+        *.s)
+            HAS_S_FILE=1
+            ARGS+=("$arg")
+            ;;
+        *)
+            ARGS+=("$arg")
+            ;;
+    esac
+done
+
+if [ "$TARGET_SET" -eq 0 ]; then
+    if [ "$IS_PREPROC" -eq 0 ]; then
+        ARGS=("--target=aarch64-linux-gnu" "-fdeclspec" "-include" "$COMPAT_HEADER" "${ARGS[@]}")
+    else
+        ARGS=("--target=aarch64-linux-gnu" "${ARGS[@]}")
+    fi
+fi
+
+if [ "$HAS_S_FILE" -eq 1 ]; then
+    ARGS=("-x" "assembler-with-cpp" "${ARGS[@]}")
+fi
+
+exec "$CLANG" "${ARGS[@]}"

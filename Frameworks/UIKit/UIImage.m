@@ -1,5 +1,6 @@
 #import <UIKit/UIImage.h>
 #import <UIKit/UIColor.h>
+#import <UIKit/UIScreen.h>
 #import <CoreGraphics/CGImage.h>
 #import <CoreGraphics/CGContext.h>
 #import <CoreGraphics/CGDataProvider.h>

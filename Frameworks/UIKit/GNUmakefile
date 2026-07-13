@@ -51,6 +51,6 @@ UIKit_HEADER_FILES = \
 UIKit_RESOURCE_FILES = \
     Info.plist
 
-ADDITIONAL_OBJCFLAGS = -fexceptions -fobjc-exceptions
+ADDITIONAL_OBJCFLAGS = -fexceptions -fobjc-exceptions -I.. -I../CoreFoundation -I../CoreGraphics
 
 include $(GNUSTEP_MAKEFILES)/framework.make

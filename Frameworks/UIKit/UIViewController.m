@@ -1,6 +1,7 @@
 #import <UIKit/UIViewController.h>
 #import <UIKit/UIView.h>
 #import <UIKit/UIApplication.h>
+#import <UIKit/UIScreen.h>
 
 @implementation UIViewController
 

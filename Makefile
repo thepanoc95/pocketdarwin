@@ -32,8 +32,8 @@ LD              = $(CROSS_COMPILE)ld
 OBJCOPY         = $(CROSS_COMPILE)objcopy
 DTC             ?= dtc
 MKBOOTIMG       ?= mkbootimg
-MIG             ?= mig
-MIGCOM          ?= $(ROOTDIR)/BuildHost/xnu-deps-linux/bootstrap_cmds-60/migcom.tproj/migcom
+MIG             ?= $(ROOTDIR)/BuildHost/xnu-deps-linux/out/bin/mig
+MIGCOM          ?= $(ROOTDIR)/BuildHost/xnu-deps-linux/out/bin/migcom
 BISON           ?= bison
 FLEX            ?= flex
 NM              ?= $(CROSS_COMPILE)nm
@@ -78,8 +78,8 @@ endif
 # On Linux, use Clang wrapper scripts that add -target
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
-# Add toolchain bin dir to PATH so sub-makes find our wrappers
-export PATH := $(ROOTDIR)/toolchain/bin:$(PATH)
+# Add toolchain bin dir and BuildHost mig to PATH so sub-makes find our wrappers
+export PATH := $(ROOTDIR)/toolchain/bin:$(ROOTDIR)/BuildHost/xnu-deps-linux/out/bin:$(PATH)
 export MIGCOM
 ifeq ($(ARCH_CONFIG),ARM)
 CC := arm-linux-gnueabi-clang
@@ -157,7 +157,7 @@ help:
 kernel: $(KERNEL_DIR)/Makefile
 	@mkdir -p $(KERNEL_BUILDDIR)/obj $(KERNEL_BUILDDIR)/sym $(KERNEL_BUILDDIR)/dst
 	$(MAKE) -C $(KERNEL_DIR) $(XNU_TARGET) \
-		CC='$(CC)' LD='$(LD)' MIGCC='$(word 1,$(CC))' \
+		CC='$(CC)' CXX='$(CXX)' LD='$(LD)' MIGCC='$(word 1,$(CC))' \
 		$(XNU_MAKE_ARGS)
 	@echo "Kernel built: $(KERNEL_BUILDDIR)/dst/mach_kernel"
 

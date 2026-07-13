@@ -1,6 +1,18 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKitExport.h>
 
+typedef NSInteger UIDeviceOrientation;
+
+enum {
+    UIDeviceOrientationUnknown,
+    UIDeviceOrientationPortrait,
+    UIDeviceOrientationPortraitUpsideDown,
+    UIDeviceOrientationLandscapeLeft,
+    UIDeviceOrientationLandscapeRight,
+    UIDeviceOrientationFaceUp,
+    UIDeviceOrientationFaceDown,
+};
+
 typedef NSInteger UIDeviceBatteryState;
 
 enum {
@@ -30,8 +42,9 @@ enum {
     CGFloat _batteryLevel;
     BOOL _batteryMonitoringEnabled;
     BOOL _proximityMonitoringEnabled;
+    BOOL _proximityState;
     BOOL _multitaskingSupported;
-    NSUInteger _orientation;
+    UIDeviceOrientation _orientation;
     UIUserInterfaceIdiom _userInterfaceIdiom;
     NSUUID *_identifierForVendor;
 }
@@ -64,21 +77,7 @@ enum {
 
 - (void)playInputClick;
 
-@property (nonatomic, readonly) float systemVersion;
-
 @end
-
-typedef NSInteger UIDeviceOrientation;
-
-enum {
-    UIDeviceOrientationUnknown,
-    UIDeviceOrientationPortrait,
-    UIDeviceOrientationPortraitUpsideDown,
-    UIDeviceOrientationLandscapeLeft,
-    UIDeviceOrientationLandscapeRight,
-    UIDeviceOrientationFaceUp,
-    UIDeviceOrientationFaceDown,
-};
 
 UIKIT_EXPORT NSString *const UIDeviceBatteryStateDidChangeNotification;
 UIKIT_EXPORT NSString *const UIDeviceBatteryLevelDidChangeNotification;

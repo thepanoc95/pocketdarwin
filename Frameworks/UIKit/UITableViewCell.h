@@ -14,6 +14,14 @@ enum {
     UITableViewCellStyleSubtitle,
 };
 
+typedef NSInteger UITableViewCellStateMask;
+
+enum {
+    UITableViewCellStateDefaultMask                     = 0,
+    UITableViewCellStateShowingEditControlMask           = 1 << 0,
+    UITableViewCellStateShowingDeleteConfirmationMask    = 1 << 1,
+};
+
 @interface UITableViewCell : UIView {
     UITableViewCellStyle _style;
     NSString *_reuseIdentifier;
@@ -82,11 +90,3 @@ enum {
 - (void)_setTableView:(UITableView *)tableView;
 
 @end
-
-typedef NSInteger UITableViewCellStateMask;
-
-enum {
-    UITableViewCellStateDefaultMask                     = 0,
-    UITableViewCellStateShowingEditControlMask           = 1 << 0,
-    UITableViewCellStateShowingDeleteConfirmationMask    = 1 << 1,
-};

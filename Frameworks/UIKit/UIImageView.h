@@ -12,7 +12,6 @@
     NSInteger _animationRepeatCount;
     BOOL _highlighted;
     BOOL _adjustsImageWhenAncestorFocused;
-    BOOL _clipsToBounds;
 }
 
 - (instancetype)initWithImage:(UIImage *)image;
@@ -33,7 +32,5 @@
 - (BOOL)isAnimating;
 
 @property (nonatomic) BOOL adjustsImageWhenAncestorFocused;
-
-@property (nonatomic) UIViewContentMode contentMode;
 
 @end

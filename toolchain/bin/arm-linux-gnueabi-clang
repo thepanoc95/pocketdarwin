@@ -1,35 +1,110 @@
 #!/bin/bash
-# Translate Apple -arch flags to GCC-style -march flags, and
-# filter out flags that are not valid or wanted on Linux.
-skip_next=0
-args=()
+# XNU Clang wrapper for ARM (AArch32) cross-compilation on Linux.
+# Translates Apple-specific compiler flags to LLVM Clang equivalents.
+# For .s files, preprocess, fix ; after .code 16, then assemble.
+CLANG=/usr/bin/clang
+COMPAT_HEADER="/home/milo/Documents/PocketDarwin/BuildHost/xnu-deps-linux/include/_xnu_compat.h"
+SKIP=0
+ARGS=()
+TARGET_SET=0
+IS_PREPROC=0
+HAS_S_FILE=0
+MARCH=""
+S_FILE=""
+
 for arg in "$@"; do
-    if [ $skip_next -eq 1 ]; then
-        skip_next=0
+    if [ "$SKIP" -gt 0 ]; then
+        SKIP=$((SKIP - 1))
         case "$arg" in
-            armv7|armv7s) args+=(-march=armv7-a) ;;
-            armv6|armv6k) args+=(-march=armv6) ;;
-            arm64)        args+=(-march=armv8-a) ;;
-            *)            ;; # skip unknown arch
+            armv7)  MARCH="-march=armv7-a" ;;
+            armv6)  MARCH="-march=armv6"   ;;
+            arm64)  ;;
         esac
         continue
     fi
-    if [ "$arg" = "-arch" ]; then
-        skip_next=1
-        continue
-    fi
-    # Strip ARM-mode-only flags for Linux clang (Apple-specific or unwanted)
     case "$arg" in
-        -mthumb|-mthumb-interwork)
-            # The kernel is compiled in ARM mode; skip Thumb flags
-            continue
-            ;;
-        -arch)
-            # should not happen, handled above
-            skip_next=1
-            continue
-            ;;
+        -arch)     SKIP=1 ;;
+        -isysroot|-iframeworkwithsysroot|-iframework) SKIP=1 ;;
+        -F*) ;;
+        -Xclang*) ;;
+        -Wextra-tokens) ;;
+        -Wno-deprecated-non-prototype|-Wno-unknown-warning-option|-Wno-nullability-completeness|-Wno-unknown-attributes) ;;
+        -Wno-poison-system-directories) ;;
+        -Wno-objc-*) ;;
+        -fno-objc-arc) ;;
+        -E) IS_PREPROC=1; ARGS+=("$arg") ;;
+        -target) TARGET_SET=1; ARGS+=("$arg") ;;
+        *.s) HAS_S_FILE=1; S_FILE="$arg" ;;
+        *) ARGS+=("$arg") ;;
     esac
-    args+=("$arg")
 done
-exec /home/oaky/.local/share/swiftly/bin/clang -target arm-linux-gnueabi "${args[@]}"
+
+TOOLCHAIN_DIR="/home/milo/Documents/PocketDarwin/toolchain/bin"
+TARGET_ARGS=("--target=arm-linux-gnueabi" $MARCH)
+
+# Check if -no-integrated-as is in the args
+NO_INTEGRATED_AS=0
+for arg in "${ARGS[@]}"; do
+    if [ "$arg" = "-no-integrated-as" ]; then
+        NO_INTEGRATED_AS=1
+        break
+    fi
+done
+
+if [ "$HAS_S_FILE" -eq 1 ] && [ "$IS_PREPROC" -eq 0 ] && [ -f "$S_FILE" ] && [ "$NO_INTEGRATED_AS" -eq 0 ]; then
+    # For .s files: preprocess with -E, fix ; after .code 16, then assemble
+    TMPDIR=$(mktemp -d --tmpdir arm_xnu.XXXXXX)
+    TMPPRE="$TMPDIR/preproc.s"
+    TMPFIX="$TMPDIR/fixed.s"
+    TMPOUT="$TMPDIR/out.o"
+
+    # Preprocess
+    "$CLANG" -E "${ARGS[@]}" "${TARGET_ARGS[@]}" -o "$TMPPRE" -x assembler-with-cpp "$S_FILE" 2>/dev/null
+    RC=$?
+    if [ $RC -ne 0 ] || [ ! -f "$TMPPRE" ]; then
+        # Fallback: compile directly
+        rm -rf "$TMPDIR"
+        exec "$CLANG" "${TARGET_ARGS[@]}" "${ARGS[@]}" -x assembler-with-cpp "$S_FILE"
+    fi
+
+    # Fix .code 16 ; .thumb ; .thumb_func ; .code 32 ; .globl ; .align
+    # GAS does not accept .thumb_func with argument, split to separate lines
+    sed -e 's/\.code\s*16\s*;/.code 16\n/g' \
+        -e 's/\.code\s*32\s*;/.code 32\n/g' \
+        -e 's/\.thumb\s*;/.thumb\n/g' \
+        -e 's/;\.thumb_func\s*/;.thumb_func\n/g' \
+        -e 's/\.thumb_func\s\+\([a-zA-Z_][a-zA-Z0-9_]*\)\s*;/.thumb_func\n\t.globl \1\n/g' \
+        "$TMPPRE" > "$TMPFIX"
+
+    # Assemble (no preprocessor needed, already preprocessed)
+    # Find -o flag to extract output path
+    OUTPUT="/dev/null"
+    for i in "${!ARGS[@]}"; do
+        if [ "${ARGS[$i]}" = "-o" ] && [ $((i+1)) -lt ${#ARGS[@]} ]; then
+            OUTPUT="${ARGS[$((i+1))]}"
+            break
+        fi
+    done
+
+    "$CLANG" "${TARGET_ARGS[@]}" -x assembler -c "$TMPFIX" -o "$OUTPUT" 2>&1
+    RC=$?
+    rm -rf "$TMPDIR"
+    exit $RC
+fi
+
+# Standard compilation (not a .s file or preprocessing only)
+if [ "$TARGET_SET" -eq 0 ]; then
+    BASE_ARGS=("${TARGET_ARGS[@]}" "-B" "$TOOLCHAIN_DIR" "-fdeclspec" $MARCH)
+    if [ "$IS_PREPROC" -eq 0 ] && [ "$HAS_S_FILE" -eq 0 ]; then
+        ARGS=("${BASE_ARGS[@]}" "-include" "$COMPAT_HEADER" "${ARGS[@]}")
+    else
+        ARGS=("${BASE_ARGS[@]}" "${ARGS[@]}")
+    fi
+fi
+
+if [ "$HAS_S_FILE" -eq 1 ]; then
+    ARGS=("-x" "assembler-with-cpp" "${ARGS[@]}")
+    ARGS+=("$S_FILE")
+fi
+
+exec "$CLANG" "${ARGS[@]}"

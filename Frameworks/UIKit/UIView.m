@@ -6,6 +6,12 @@
 #import <Foundation/NSKeyedArchiver.h>
 #import <Foundation/NSException.h>
 
+typedef NSInteger NSWindowOrderingMode;
+enum {
+    NSWindowBelow = -1,
+    NSWindowAbove = 1,
+};
+
 static BOOL UIViewAnimationsEnabled = YES;
 static NSMutableDictionary *UIViewAnimationContext = nil;
 

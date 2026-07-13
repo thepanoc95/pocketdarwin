@@ -32,32 +32,44 @@
       nixpkgsCrossName = pkgs: pkgs.pkgsCross.armv7l-hf-multiplatform;
     };
 
+    # ARM bare-metal toolchain for embedded development
+    armNoneEabihf = pkgs: pkgs.symlinkJoin {
+      name = "arm-none-eabi-toolchain";
+      paths = [ pkgs."gcc-arm-embedded" ] ++ (pkgs."gcc-arm-embedded".getPackages or []);
+      postBuild = ''
+        # Create symlinks with arm-none-eabi- prefix (already present in gcc-arm-embedded)
+        # No additional work needed as gcc-arm-embedded already uses arm-none-eabi prefix
+      '';
+    };
+
   in {
     packages = forAllSystems (system: let
-      pkgs = import nixpkgs { inherit system; };
-    in {
-      dtc                       = pkgs.dtc;
-      android-tools             = pkgs.android-tools;
-      aarch64-linux-gnu-toolchain = aarch64Cross pkgs;
-      arm-linux-gnueabihf-toolchain = armCross pkgs;
-      default                   = armCross pkgs;
-    });
+          pkgs = import nixpkgs { inherit system; };
+        in {
+          dtc                       = pkgs.dtc;
+          android-tools             = pkgs.android-tools;
+          aarch64-linux-gnu-toolchain = aarch64Cross pkgs;
+          arm-linux-gnueabihf-toolchain = armCross pkgs;
+          arm-none-eabi-toolchain = armNoneEabihf pkgs;
+          default                   = armCross pkgs;
+        });
 
     devShells = forAllSystems (system: let
       pkgs = import nixpkgs { inherit system; };
     in {
       default = pkgs.mkShell {
-        name = "megaboot-dev";
+        name = "PocketDarwin DevSpace";
 
         packages = with pkgs; [
-          (armCross pkgs)
-          (aarch64Cross pkgs)
-          clang
-          dtc
-          android-tools
-          gnumake
-          pkgs.pkgsi686Linux.glibc
-        ];
+                  (armCross pkgs)
+                  (aarch64Cross pkgs)
+                  (armNoneEabihf pkgs)
+                  clang
+                  dtc
+                  android-tools
+                  gnumake
+                  pkgs.pkgsi686Linux.glibc
+                ];
 
         shellHook = ''
           export CROSS_COMPILE="arm-linux-gnueabihf-"

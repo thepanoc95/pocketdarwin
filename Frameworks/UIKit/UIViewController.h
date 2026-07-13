@@ -1,5 +1,8 @@
 #import <UIKit/UIResponder.h>
 #import <UIKit/UIKitExport.h>
+#import <UIKit/UIApplication.h>
+#import <UIKit/UIGeometry.h>
+#import <UIKit/UIView.h>
 
 @class UIView;
 @class UITabBarItem;
@@ -11,6 +14,15 @@
 @class UISplitViewController;
 @class UIPresentationController;
 @class UIPopoverPresentationController;
+
+@protocol UIViewControllerTransitionCoordinator <NSObject>
+@end
+
+@protocol UIViewControllerTransitioningDelegate <NSObject>
+@end
+
+@protocol UIViewControllerRestoration <NSObject>
+@end
 
 typedef NSInteger UIModalTransitionStyle;
 
@@ -59,7 +71,7 @@ enum {
     NSString *_nibName;
     NSBundle *_nibBundle;
     CGSize _preferredContentSize;
-    BOOL _restorationClass;
+    Class _restorationClass;
 }
 
 - (instancetype)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil;

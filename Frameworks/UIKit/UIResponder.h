@@ -4,7 +4,12 @@
 @class UIEvent;
 @class UIKeyCommand;
 @class UIPress;
+@class UIPressesEvent;
 @class UIMenuController;
+@class UIView;
+
+typedef NSInteger UIEventSubtype;
+typedef NSInteger UIUserInterfaceLayoutDirection;
 
 typedef NSInteger UIKeyModifierFlags;
 

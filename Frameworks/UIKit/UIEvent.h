@@ -4,6 +4,7 @@
 
 @class UIView;
 @class UIWindow;
+@class UIGestureRecognizer;
 
 typedef NSInteger UIEventType;
 

@@ -9,6 +9,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import <CoreGraphics/CoreGraphicsExport.h>
 #import <CoreGraphics/CGGeometry.h>
 
+#ifndef CF_DEFINES_CG_TYPES
 typedef struct {
     CGFloat a;
     CGFloat b;
@@ -17,6 +18,7 @@ typedef struct {
     CGFloat tx;
     CGFloat ty;
 } CGAffineTransform;
+#endif
 
 COREGRAPHICS_EXPORT const CGAffineTransform CGAffineTransformIdentity;
 

@@ -1,9 +1,12 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKitExport.h>
+#import <UIKit/UIGeometry.h>
 
 @class UIView;
 @class UIEvent;
 @class UITouch;
+@class UIPressesEvent;
+@class UIPress;
 
 typedef NSInteger UIGestureRecognizerState;
 
@@ -28,7 +31,6 @@ enum {
     BOOL _delaysTouchesEnded;
     NSMutableArray *_delayedTouches;
     NSMutableSet *_touches;
-    NSUInteger _numberOfTouchesRequired;
     NSMutableArray *_recognizersToWaitFor;
     NSMutableArray *_recognizersToFailFor;
     BOOL _requiresExclusiveTouchType;
@@ -96,17 +98,17 @@ enum {
 
 @end
 
-@interface UISwipeGestureRecognizer : UIGestureRecognizer
-
-@property (nonatomic) UISwipeGestureRecognizerDirection direction;
-@property (nonatomic) NSUInteger numberOfTouchesRequired;
-
 typedef NS_OPTIONS(NSUInteger, UISwipeGestureRecognizerDirection) {
     UISwipeGestureRecognizerDirectionRight = 1 << 0,
     UISwipeGestureRecognizerDirectionLeft  = 1 << 1,
     UISwipeGestureRecognizerDirectionUp    = 1 << 2,
     UISwipeGestureRecognizerDirectionDown  = 1 << 3,
 };
+
+@interface UISwipeGestureRecognizer : UIGestureRecognizer
+
+@property (nonatomic) UISwipeGestureRecognizerDirection direction;
+@property (nonatomic) NSUInteger numberOfTouchesRequired;
 
 @end
 
@@ -131,7 +133,7 @@ typedef NS_OPTIONS(NSUInteger, UISwipeGestureRecognizerDirection) {
 
 @property (nonatomic) NSUInteger numberOfTapsRequired;
 @property (nonatomic) NSUInteger numberOfTouchesRequired;
-@property (nonatomic) CFTimeInterval minimumPressDuration;
+@property (nonatomic) NSTimeInterval minimumPressDuration;
 @property (nonatomic) CGFloat allowableMovement;
 
 @end
