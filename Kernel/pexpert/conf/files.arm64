@@ -7,5 +7,4 @@ pexpert/arm/common/pe_identify_machine.c	standard
 pexpert/arm/common/pe_socsupport.c	standard
 pexpert/arm/common/pe_armsupport.c	standard
 pexpert/arm/pe_generic_arm64.c		standard
-pexpert/arm/pe_msm8916.c		optional board_config_msm8916_harpia
 pexpert/arm/pe_msm8916_arm64.c		optional board_config_msm8916_harpia

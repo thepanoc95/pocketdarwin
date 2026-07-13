@@ -374,10 +374,14 @@ Debugger(
     hw_atomic_add(&debug_mode, 1);   
     if (!panic_is_inited) {
         /* Halt forever. */
+#if defined(__arm__)
 #ifdef _ARM_ARCH_7
         asm("cpsid if; wfi; b .");
 #else
         asm("cpsid if; b .");
+#endif
+#elif defined(__arm64__) || defined(__aarch64__)
+        asm("msr daifset, #3; wfi; b .");
 #endif
     }
 
@@ -407,8 +411,13 @@ Debugger(
     }
 
     /* Enter KDP if necessary. */
-    if(current_debugger)
+    if(current_debugger) {
+#if defined(__arm__)
         __asm__ __volatile__("bkpt #0");
+#elif defined(__arm64__) || defined(__aarch64__)
+        __asm__ __volatile__("brk #0");
+#endif
+    }
 
     hw_atomic_sub(&debug_mode, 1);   
 }

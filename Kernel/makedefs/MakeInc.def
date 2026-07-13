@@ -122,8 +122,8 @@ export SUPPORTED_I386_MACHINE_CONFIGS := DEFAULT
 export SUPPORTED_X86_64_MACHINE_CONFIGS := DEFAULT
 export SUPPORTED_ARM_MACHINE_CONFIGS := S5L8920X S5L8922X S5L8930X ARMPBA8 SUN4I OMAP3530 OMAP335X RASPBERRYPI \
 					OMAP3430_RX51 ARM_RVEB_V6 S5L8720X S5L8900XRB MSM8960_TOUCHPAD IMX53 \
-					MSM8916_HARPIA
-export SUPPORTED_ARM64_MACHINE_CONFIGS := DEFAULT VEXPRESS MSM8916_HARPIA 
+					MSM8XXX MSM8916_HARPIA
+export SUPPORTED_ARM64_MACHINE_CONFIGS := DEFAULT VEXPRESS MSM8XXX MSM8916_HARPIA 
 
 #
 # Target configuration options.  NOTE - target configurations will 
@@ -312,6 +312,7 @@ ARCH_FLAGS_ARM64	= -arch arm64
 
 ARCH_FLAGS_ARM		  = $($(addsuffix $(MACHINE_CONFIG),ARCH_FLAGS_ARM_))
 
+ARCH_FLAGS_ARM_MSM8XXX		= -arch armv7
 ARCH_FLAGS_ARM_MSM8916_HARPIA	= -arch armv7
 ARCH_FLAGS_ARM_S5L8930X	= -arch armv7
 ARCH_FLAGS_ARM_S5L8922X	= -arch armv7
@@ -326,7 +327,6 @@ ARCH_FLAGS_ARM_MSM8960_TOUCHPAD	= -arch armv7
 ARCH_FLAGS_ARM_RASPBERRYPI	= -arch armv6
 ARCH_FLAGS_ARM_ARM_RVEB_V6	= -arch armv6
 ARCH_FLAGS_ARM_IMX53		= -arch armv7
-ARCH_FLAGS_ARM_MOTO_MSM8916 = -arch armv7
 ARCH_FLAGS_ARM_MSM8916_HARPIA = -arch armv7
 
 #
@@ -380,8 +380,8 @@ export CFLAGS_X86_64	= -Dx86_64 -DX86_64 -D__X86_64__ -DLP64 \
 export CFLAGS_ARM 	= -Darm -DARM -D__ARM__ -DPAGE_SIZE_FIXED \
 				-fno-strict-aliasing -fno-keep-inline-functions \
 				-msoft-float
-export CFLAGS_ARM64	= -Darm -DARM64 -D__arm__ -DARM -D__ARM64__ -DPAGE_SIZE_FIXED \
-				-fno-strict-aliasing -fno-keep-inline-functions -DLP64 -integrated-as
+export CFLAGS_ARM64	= -DARM64 -D__arm64__ -D__ARM64__ -DPAGE_SIZE_FIXED \
+				-fno-strict-aliasing -fno-keep-inline-functions -DLP64
 
 ifeq (-arch armv6,$(ARCH_FLAGS_ARM))
 CFLAGS_ARM		+= -mno-thumb

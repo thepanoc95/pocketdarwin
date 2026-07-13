@@ -5,7 +5,11 @@ export MakeInc_dir=${SRCROOT}/makedefs/MakeInc.dir
 
 
 include $(MakeInc_cmd)
+
+VPATH = $(SOURCE)
 include $(MakeInc_def)
+
+VPATH = $(SOURCE)
 
 MIG_TYPES = \
 	default_pager_types.defs
@@ -135,4 +139,8 @@ ${MIG_KSSRC}: \
         
 
 include $(MakeInc_rule)
+
+VPATH = $(SOURCE)
 include $(MakeInc_dir)
+
+VPATH = $(SOURCE)

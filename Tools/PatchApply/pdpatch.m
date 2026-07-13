@@ -1,9 +1,5 @@
 #import <Foundation/Foundation.h>
 
-// ============================================================================
-// Shared Model
-// ============================================================================
-
 @interface PatchFile : NSObject
 @property (nonatomic, strong) NSString *filePath;
 @property (nonatomic, strong) NSString *fileName;
@@ -86,10 +82,6 @@
 }
 
 @end
-
-// ============================================================================
-// CLI Operations
-// ============================================================================
 
 @interface PatchCLI : NSObject
 

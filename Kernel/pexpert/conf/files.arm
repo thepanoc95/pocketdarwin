@@ -18,6 +18,7 @@ pexpert/arm/pe_s5l8720x.c		standard
 pexpert/arm/pe_s5l8900x.c		standard
 pexpert/arm/pe_s5l8930x.c		standard
 pexpert/arm/pe_apq8060.c		standard
-pexpert/arm/pe_msm8916.c		standard
+pexpert/arm/pe_msm8xxx.c		optional board_config_msm8xxx
+pexpert/arm/pe_msm8916.c		optional board_config_msm8916_harpia
 pexpert/arm/pe_generic.c		standard
 pexpert/arm/pe_imx53.c			standard

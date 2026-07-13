@@ -19,6 +19,12 @@ release arm s5l8930x
 release arm s5l8920x
 release arm s5l8922x
 release arm omap3430_rx51
+debug arm msm8xxx
+development arm msm8xxx
+release arm msm8xxx
+debug arm64 msm8xxx
+development arm64 msm8xxx
+release arm64 msm8xxx
 debug arm64 msm8916_harpia
 development arm64 msm8916_harpia
 release arm64 msm8916_harpia

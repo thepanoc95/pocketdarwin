@@ -1,74 +1,48 @@
 /*
- * minlibc - Portable C Runtime
- * ARM EABI (eabihf), i386, x86_64 support
+ * minlibc - Minimal C Runtime for XNU (macOS 10.7)
+ * ARM EABI (eabihf) support
  * 
- * libc_portable.c: Cross-platform libc (Linux, FreeBSD, macOS)
- * Uses syscall_compat.h for platform-specific syscall numbers
+ * libc.c: Core libc stubs and syscall wrappers
+ * EXPANDED: Shell-ready with fork, execve, waitpid, dup2, pipe, getcwd, chdir
  */
 
 #include <stddef.h>
 #include <stdint.h>
-#include <syscall_compat.h>
-
-/* Forward declarations */
-void *memcpy(void *dest, const void *src, size_t n);
 
 /* ============================================================================
- * Syscall Interface
- * ============================================================================
- *
- * ARM EABI:  r7=syscall#, r0-r3=args, svc 0
- * x86_64:    rax=syscall#, rdi/rsi/rdx/r10/r8/r9=args, syscall
- * i386:      eax=syscall#, ebx/ecx/edx/esi/edi/ebp=args, int $0x80
- */
+ * Syscall Numbers for ARM EABI on XNU (macOS 10.7)
+ * ============================================================================ */
 
-#if defined(__x86_64__)
+#define SYS_exit        1
+#define SYS_fork        2
+#define SYS_read        3
+#define SYS_write       4
+#define SYS_open        5
+#define SYS_close       6
+#define SYS_wait4       114
+#define SYS_mmap        197
+#define SYS_munmap      73
+#define SYS_mprotect    74
+#define SYS_brk         45
+#define SYS_dup2        63
+#define SYS_pipe        42
+#define SYS_fork_new    442  /* New fork on newer XNU */
+#define SYS_execve      59
+#define SYS_getpid      20
+#define SYS_getppid     39
+#define SYS_getcwd      326
+#define SYS_chdir       12
+#define SYS_stat        188
+#define SYS_lstat       190
+#define SYS_fstat       189
+#define SYS_isatty      54
+#define SYS_ioctl       54
 
-static inline long __syscall(long num, long a1, long a2, long a3,
-                              long a4, long a5, long a6)
-{
-#if defined(MINLIBC_APPLE) && !defined(MINLIBC_DARLING)
-    num += 0x2000000;
-#endif
-    register long r10 asm("r10") = a4;
-    register long r8 asm("r8") = a5;
-    register long r9 asm("r9") = a6;
+/* ============================================================================
+ * ARM EABI Syscall Interface
+ * ============================================================================ */
 
-    asm volatile("syscall"
-                 : "+a"(num)
-                 : "D"(a1), "S"(a2), "d"(a3), "r"(r10), "r"(r8), "r"(r9)
-                 : "rcx", "r11", "memory");
-
-    return num;
-}
-
-#elif defined(__i386__)
-
-static inline long __syscall(long num, long a1, long a2, long a3,
-                              long a4, long a5, long a6)
-{
-#if defined(MINLIBC_APPLE) && !defined(MINLIBC_DARLING)
-    num += 0x2000000;
-#endif
-    register long ebx asm("ebx") = a1;
-    register long ecx asm("ecx") = a2;
-    register long edx asm("edx") = a3;
-    register long esi asm("esi") = a4;
-    register long edi asm("edi") = a5;
-    register long ebp asm("ebp") = a6;
-
-    asm volatile("int $0x80"
-                 : "+a"(num)
-                 : "r"(ebx), "r"(ecx), "r"(edx),
-                   "r"(esi), "r"(edi), "r"(ebp)
-                 : "memory");
-
-    return num;
-}
-
-#else /* ARM EABI */
-
-static inline long __syscall(long num, long a1, long a2, long a3,
+static inline long __syscall(long num, long a1, long a2, long a3, 
                               long a4, long a5, long a6)
 {
     register long r7 asm("r7") = num;
@@ -84,8 +58,6 @@ static inline long __syscall(long num, long a1, long a2, long a3,
     
     return r0;
 }
-
-#endif
 
 /* ============================================================================
  * Type Definitions
@@ -129,17 +101,24 @@ pid_t getppid(void)
     return (pid_t)__syscall(SYS_getppid, 0, 0, 0, 0, 0, 0);
 }
 
+/* waitpid - simplified wrapper */
+typedef struct {
+    int status;
+} waitpid_status_t;
+
 pid_t waitpid(pid_t pid, int *status, int options)
 {
     long ret = __syscall(SYS_wait4, pid, (long)status, options, 0, 0, 0);
     return (pid_t)ret;
 }
 
+/* wait - wait for any child */
 pid_t wait(int *status)
 {
     return waitpid(-1, status, 0);
 }
 
+/* execve - execute a program */
 int execve(const char *filename, char *const argv[], char *const envp[])
 {
     return (int)__syscall(SYS_execve, (long)filename, (long)argv, (long)envp, 0, 0, 0);
@@ -169,11 +148,13 @@ ssize_t write(fd_t fd, const void *buf, size_t count)
     return (ssize_t)__syscall(SYS_write, fd, (long)buf, count, 0, 0, 0);
 }
 
+/* dup2 - duplicate file descriptor to specific fd */
 int dup2(fd_t oldfd, fd_t newfd)
 {
     return (int)__syscall(SYS_dup2, oldfd, newfd, 0, 0, 0, 0);
 }
 
+/* pipe - create bidirectional pipe */
 int pipe(fd_t pipefd[2])
 {
     return (int)__syscall(SYS_pipe, (long)pipefd, 0, 0, 0, 0, 0);
@@ -207,7 +188,7 @@ struct stat {
     unsigned int   st_gid;
     unsigned int   st_rdev;
     long           st_size;
-    long           st_atimespec;
+    long           st_atimespec;  /* simplified */
     long           st_mtimespec;
     long           st_ctimespec;
     long           st_blksize;
@@ -224,14 +205,10 @@ int fstat(fd_t fd, struct stat *statbuf)
     return (int)__syscall(SYS_fstat, fd, (long)statbuf, 0, 0, 0, 0);
 }
 
+/* isatty - check if fd is a terminal */
 int isatty(fd_t fd)
 {
-#ifdef MINLIBC_APPLE
     return (int)__syscall(SYS_isatty, fd, 0, 0, 0, 0, 0);
-#else
-    unsigned int dummy;
-    return (int)__syscall(SYS_ioctl, fd, 0x540D /* TIOCGPGRP */, (long)&dummy, 0, 0, 0) == 0;
-#endif
 }
 
 /* ============================================================================
@@ -261,8 +238,9 @@ void *calloc(size_t nmemb, size_t size)
     
     if (ptr) {
         char *p = (char *)ptr;
-        for (size_t i = 0; i < total; i++)
+        for (size_t i = 0; i < total; i++) {
             p[i] = 0;
+        }
     }
     
     return ptr;
@@ -347,6 +325,7 @@ char *strrchr(const char *s, int c)
     return (char *)last;
 }
 
+/* strdup - allocate and copy string */
 char *strdup(const char *s)
 {
     size_t len = strlen(s) + 1;
@@ -356,49 +335,7 @@ char *strdup(const char *s)
     return dup;
 }
 
-char *strndup(const char *s, size_t n)
-{
-    size_t len = strlen(s);
-    if (len > n)
-        len = n;
-    char *dup = (char *)malloc(len + 1);
-    if (dup) {
-        strncpy(dup, s, len);
-        dup[len] = 0;
-    }
-    return dup;
-}
-
-/* GNU extension: safer string copy with length return */
-size_t strlcpy(char *dst, const char *src, size_t dstsize)
-{
-    size_t len = strlen(src);
-    if (dstsize > 0) {
-        size_t n = (len < dstsize - 1) ? len : dstsize - 1;
-        memcpy(dst, src, n);
-        dst[n] = 0;
-    }
-    return len;
-}
-
-/* GNU extension: safer string concatenation with length return */
-size_t strlcat(char *dst, const char *src, size_t dstsize)
-{
-    size_t dlen = strlen(dst);
-    size_t slen = strlen(src);
-    size_t len = dlen + slen;
-    
-    if (dlen < dstsize) {
-        size_t n = dstsize - dlen - 1;
-        if (n > slen)
-            n = slen;
-        memcpy(dst + dlen, src, n);
-        dst[dlen + n] = 0;
-    }
-    
-    return len;
-}
-
+/* strtok - tokenize string (simple version) */
 char *strtok(char *str, const char *delim)
 {
     static char *last = NULL;
@@ -409,6 +346,7 @@ char *strtok(char *str, const char *delim)
             return NULL;
     }
     
+    /* Skip leading delimiters */
     while (*str && strchr(delim, *str))
         str++;
     
@@ -419,6 +357,7 @@ char *strtok(char *str, const char *delim)
     
     char *start = str;
     
+    /* Find end of token */
     while (*str && !strchr(delim, *str))
         str++;
     
@@ -515,10 +454,10 @@ int toupper(int c)
 }
 
 /* ============================================================================
- * Environment Variables
+ * Environment Variables (minimal support)
  * ============================================================================ */
 
-char **environ = (char **)0;
+extern char **environ;
 
 char *getenv(const char *name)
 {
@@ -534,69 +473,6 @@ char *getenv(const char *name)
     }
     
     return NULL;
-}
-
-/* ============================================================================
- * Memory Management - Paging
- * ============================================================================ */
-
-void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
-{
-    return (void *)__syscall(SYS_mmap2, (long)addr, length, prot, flags, fd, offset >> 12);
-}
-
-int munmap(void *addr, size_t length)
-{
-    return (int)__syscall(SYS_munmap, (long)addr, length, 0, 0, 0, 0);
-}
-
-int mprotect(void *addr, size_t length, int prot)
-{
-    return (int)__syscall(SYS_mprotect, (long)addr, length, prot, 0, 0, 0);
-}
-
-/* ============================================================================
- * Advanced File Operations
- * ============================================================================ */
-
-off_t lseek(int fd, off_t offset, int whence)
-{
-    return (off_t)__syscall(SYS_lseek, fd, offset, whence, 0, 0, 0);
-}
-
-int access(const char *pathname, int mode)
-{
-    return (int)__syscall(SYS_access, (long)pathname, mode, 0, 0, 0, 0);
-}
-
-uid_t getuid(void)
-{
-    return (uid_t)__syscall(SYS_getuid, 0, 0, 0, 0, 0, 0);
-}
-
-uid_t geteuid(void)
-{
-    return (uid_t)__syscall(SYS_geteuid, 0, 0, 0, 0, 0, 0);
-}
-
-gid_t getgid(void)
-{
-    return (gid_t)__syscall(SYS_getgid, 0, 0, 0, 0, 0, 0);
-}
-
-gid_t getegid(void)
-{
-    return (gid_t)__syscall(SYS_getegid, 0, 0, 0, 0, 0, 0);
-}
-
-int setuid(uid_t uid)
-{
-    return (int)__syscall(SYS_setuid, uid, 0, 0, 0, 0, 0);
-}
-
-int setgid(gid_t gid)
-{
-    return (int)__syscall(SYS_setgid, gid, 0, 0, 0, 0, 0);
 }
 
 /* ============================================================================
@@ -622,7 +498,6 @@ void __cxa_finalize(void *dso)
  * Weak main() stub (user code should override)
  * ============================================================================ */
 
-__attribute__((weak))
 int main(int argc, char *argv[], char *envp[])
 {
     (void)argc;
@@ -630,7 +505,3 @@ int main(int argc, char *argv[], char *envp[])
     (void)envp;
     return 0;
 }
-
-#ifdef defined(__APPLE__) || defined(__DARWIN__)
-
-#endif

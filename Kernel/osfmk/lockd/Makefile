@@ -4,7 +4,11 @@ export MakeInc_rule=${SRCROOT}/makedefs/MakeInc.rule
 export MakeInc_dir=${SRCROOT}/makedefs/MakeInc.dir
 
 include $(MakeInc_cmd)
+
+VPATH = $(SOURCE)
 include $(MakeInc_def)
+
+VPATH = $(SOURCE)
 
 INSTINC_SUBDIRS =
 
@@ -58,4 +62,8 @@ ${MIG_KUSRC} : lockd_mach.defs
 		$<
 
 include $(MakeInc_rule)
+
+VPATH = $(SOURCE)
 include $(MakeInc_dir)
+
+VPATH = $(SOURCE)

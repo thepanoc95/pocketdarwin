@@ -1,18 +1,3 @@
-#
-# PocketDarwin Top-Level Build System
-#
-# Targets:
-#   all              Build everything: kernel + loader + dtb
-#   kernel           Build the XNU kernel (ARM64)
-#   kernldr          Build the kernel loader (boot/kernldr)
-#   maloader         Build maloader with XNU kernel patch applied
-#   dtbs             Compile device tree blobs
-#   drivers          Build IOKit drivers for Android
-#   bootimg          Package kernel + dtb + loader into Android boot.img
-#   clean            Clean all build artifacts
-#   distclean        Full clean including toolchain downloads
-#
-
 SHELL := /bin/bash
 
 # ---------------------------------------------------------------------------

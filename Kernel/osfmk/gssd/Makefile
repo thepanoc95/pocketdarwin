@@ -4,7 +4,11 @@ export MakeInc_rule=${SRCROOT}/makedefs/MakeInc.rule
 export MakeInc_dir=${SRCROOT}/makedefs/MakeInc.dir
 
 include $(MakeInc_cmd)
+
+VPATH = $(SOURCE)
 include $(MakeInc_def)
+
+VPATH = $(SOURCE)
 
 INSTINC_SUBDIRS =
 
@@ -61,4 +65,8 @@ ${MIG_KUSRC} : gssd_mach.defs
 	$(_v)sed -i 's/() mig_strncpy/mig_strncpy/g' $*.c
 
 include $(MakeInc_rule)
+
+VPATH = $(SOURCE)
 include $(MakeInc_dir)
+
+VPATH = $(SOURCE)

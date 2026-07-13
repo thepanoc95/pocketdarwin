@@ -5,7 +5,11 @@ export MakeInc_dir=${SRCROOT}/makedefs/MakeInc.dir
 
 
 include $(MakeInc_cmd)
+
+VPATH = $(SOURCE)
 include $(MakeInc_def)
+
+VPATH = $(SOURCE)
 
 MIG_DEFS =	\
 	device.defs
@@ -54,4 +58,8 @@ ${DEVICE_FILES}: device.defs
 
 
 include $(MakeInc_rule)
+
+VPATH = $(SOURCE)
 include $(MakeInc_dir)
+
+VPATH = $(SOURCE)

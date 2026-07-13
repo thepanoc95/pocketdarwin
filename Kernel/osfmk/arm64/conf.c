@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -11,10 +11,10 @@
  * unlawful or unlicensed copies of an Apple operating system, or to
  * circumvent, violate, or enable the circumvention or violation of, any
  * terms of an Apple operating system software license agreement.
- * 
+ *
  * Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -22,18 +22,23 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
-#ifndef _BSD_MACHINE_SIGNAL_H_
-#define _BSD_MACHINE_SIGNAL_H_
 
-#if defined (__i386__) || defined(__x86_64__)
-#include "i386/signal.h"
-#elif defined (__arm__) || defined(__arm64__) || defined(__ARM64__)
-#include "arm/signal.h"
-#else
-#error architecture not supported
-#endif
+/*
+ * Device switch for ARM64.
+ */
 
-#endif /* _BSD_MACHINE_SIGNAL_H_ */
+#include <platforms.h>
+#include <types.h>
+#include <kern/clock.h>
+
+extern struct clock_ops sysclk_ops, calend_ops;
+
+struct clock clock_list[] = {
+    {&sysclk_ops, 0, 0},
+    {&calend_ops, 0, 0}
+};
+
+int clock_count = sizeof(clock_list) / sizeof(clock_list[0]);

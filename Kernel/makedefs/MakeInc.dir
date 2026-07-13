@@ -434,7 +434,7 @@ else ifeq ($(findstring _headers_Sim,$(RC_ProjectName)),_headers_Sim) # Libsysca
 all: exporthdrs
 else # xnu or xnu_debug
 ifeq ($(COMPONENT), .)
-all: exporthdrs setup
+all: setup
 else
 all:
 endif
