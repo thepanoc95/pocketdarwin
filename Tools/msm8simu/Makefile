@@ -4,7 +4,11 @@ LDFLAGS :=
 
 SRCS := main.c cpu.c platform.c
 OBJS := $(SRCS:.c=.o)
-TARGET := msm8simu
+ifdef ARCH = x86_64
+TARGET := msm8simu.elf64
+else
+TARGET := msm8simu.elf
+endif
 
 all: $(TARGET)
 

@@ -4,6 +4,8 @@ build/
 *.elf
 *.bin
 *.img
+*.efi
+a.out
 # IDE
 .cproject
 .project
