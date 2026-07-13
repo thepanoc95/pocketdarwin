@@ -44,40 +44,43 @@
 
   in {
     packages = forAllSystems (system: let
-          pkgs = import nixpkgs { inherit system; };
-        in {
-          dtc                       = pkgs.dtc;
-          android-tools             = pkgs.android-tools;
-          aarch64-linux-gnu-toolchain = aarch64Cross pkgs;
-          arm-linux-gnueabihf-toolchain = armCross pkgs;
-          arm-none-eabi-toolchain = armNoneEabihf pkgs;
-          default                   = armCross pkgs;
-        });
+                  pkgs = import nixpkgs { inherit system; };
+                in {
+                  dtc                       = pkgs.dtc;
+                  android-tools             = pkgs.android-tools;
+                  aarch64-linux-gnu-toolchain = aarch64Cross pkgs;
+                  arm-linux-gnueabihf-toolchain = armCross pkgs;
+                  arm-none-eabi-toolchain = armNoneEabihf pkgs;
+                  libfdt                    = pkgs.dtc;
+                  default                   = armCross pkgs;
+                });
 
     devShells = forAllSystems (system: let
-      pkgs = import nixpkgs { inherit system; };
-    in {
-      default = pkgs.mkShell {
-        name = "PocketDarwin DevSpace";
+          pkgs = import nixpkgs { inherit system; };
+          libPath = pkgs.lib.makeLibraryPath [ pkgs.dtc ];
+        in {
+          default = pkgs.mkShell {
+            name = "PocketDarwin DevSpace";
 
-        packages = with pkgs; [
-                  (armCross pkgs)
-                  (aarch64Cross pkgs)
-                  (armNoneEabihf pkgs)
-                  clang
-                  dtc
-                  android-tools
-                  gnumake
-                  pkgs.pkgsi686Linux.glibc
-                ];
+            packages = with pkgs; [
+                          (armCross pkgs)
+                          (aarch64Cross pkgs)
+                          (armNoneEabihf pkgs)
+                          clang
+                          dtc
+                          android-tools
+                          gnumake
+                          pkgs.pkgsi686Linux.glibc
+                        ];
 
-        shellHook = ''
-          export CROSS_COMPILE="arm-linux-gnueabihf-"
-          echo "=== PocketDarwin development shell ==="
-          echo "CROSS_COMPILE=$CROSS_COMPILE"
-        '';
-      };
-    });
+            shellHook = ''
+              export CROSS_COMPILE="arm-linux-gnueabihf-"
+              export LD_LIBRARY_PATH="${libPath}:$LD_LIBRARY_PATH"
+              echo "=== PocketDarwin development shell ==="
+              echo "CROSS_COMPILE=$CROSS_COMPILE"
+              '';
+          };
+        });
 
     formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixpkgs-fmt);
   };
