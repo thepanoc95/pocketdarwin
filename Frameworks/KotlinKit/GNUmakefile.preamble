@@ -1,0 +1,21 @@
+#
+# GNUmakefile.preamble - KotlinKit Framework
+#
+# Additional flags to pass to the preprocessor
+ADDITIONAL_CPPFLAGS += -DKOTLINKIT_VERSION="0.1"
+
+# Additional flags to pass to Objective C compiler
+ADDITIONAL_OBJCFLAGS += -fobjc-arc
+
+# Additional flags to pass to the linker
+ADDITIONAL_LDFLAGS += -framework Foundation
+
+# Include GNUKext support if building kexts
+ifeq ($(ENABLE_KOTLIN_KEXT),yes)
+  ADDITIONAL_LDFLAGS += -framework GNUKext
+endif
+
+# Include UIKit support if building UI apps
+ifeq ($(ENABLE_KOTLIN_UIKIT),yes)
+  ADDITIONAL_LDFLAGS += -framework UIKit
+endif

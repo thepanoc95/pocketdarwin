@@ -1,7 +1,7 @@
 #!/bin/bash
 # XNU Clang wrapper: translates Apple-specific compiler flags to LLVM Clang equivalents
 CLANG=/usr/bin/clang
-COMPAT_HEADER="/home/milo/Documents/PocketDarwin/BuildHost/xnu-deps-linux/include/_xnu_compat.h"
+COMPAT_HEADER="$(dirname "$(dirname "$0")")/../BuildHost/xnu-deps-linux/include/_xnu_compat.h"
 SKIP=0
 ARGS=()
 TARGET_SET=0
@@ -54,7 +54,7 @@ for arg in "$@"; do
     esac
 done
 
-XNU_INCLUDE_DIR="/home/milo/Documents/PocketDarwin/BuildHost/xnu-deps-linux/include"
+XNU_INCLUDE_DIR="$(dirname "$(dirname "$0")")/../BuildHost/xnu-deps-linux/include"
 # Set target and add compat header (only for actual compilation, not MIG preprocessing)
 if [ "$TARGET_SET" -eq 0 ]; then
     if [ "$IS_PREPROC" -eq 0 ]; then

@@ -1,7 +1,7 @@
 OPTIONS/show_space		optional show_space
-OPTIONS/gdb				optional gdb
+OPTIONS/gdb			optional gdb
 OPTIONS/iplmeas			optional iplmeas
-OPTIONS/fb				optional fb
+OPTIONS/fb			optional fb
 OPTIONS/debug			optional debug
 OPTIONS/gprof		optional gprof
 OPTIONS/dynamic_num_nodes	optional dynamic_num_nodes
@@ -15,6 +15,7 @@ osfmk/console/arm/serial_console.c  optional vc
 
 osfmk/arm64/conf.c		standard
 
+osfmk/arm64/machine_routines_asm.s	standard
 osfmk/arm64/memcmp.s		standard
 osfmk/arm64/memmove.s		standard
 osfmk/arm64/memset.s		standard

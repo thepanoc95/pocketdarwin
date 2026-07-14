@@ -1,0 +1,7 @@
+{
+    "System": {
+        "name": "PocketDarwin",
+        "version": "/var/sysversion",
+        "arch": "/var/sysversion.d/buildArch"   
+    }
+}

@@ -38,16 +38,23 @@ kextldr.subproj
 #
 # Public headers (will be installed)
 #
+GNUKext_HEADER_FILES_DIR = .
+GNUKext_HEADER_FILES_INSTALL_DIR = /GNUKext
 GNUKext_HEADER_FILES = \
 GNUKext.h \
 libkern.h \
 LinuxModule.h \
 BSDModule.h \
-IOKitLib.h \
-IOKitServer.h \
-IOMessage.h \
-IOReturn.h \
-IOTypes.h 
+DarwinModule.h \
+GNUKextDriver.h \
+GNUKextRegistry.h \
+GNUKextPersonality.h \
+kIOPlatformHandler.h \
+IOKit/IOReturn.h \
+IOKit/IOKitLib.h \
+IOKit/IOMessage.h \
+IOKit/IOTypes.h \
+IOKit/IOKitServer.h 
 
 #
 # Objective-C Class files
@@ -88,10 +95,3 @@ GNUKext_AGSDOC_FLAGS += -MakeFrames YES
 include $(GNUSTEP_MAKEFILES)/aggregate.make
 include $(GNUSTEP_MAKEFILES)/framework.make
 -include GNUmakefile.postamble
-
-
-#Only build documentation if doc=yes was passed on the command line
-#
-ifeq ($(doc),yes)
-include $(GNUSTEP_MAKEFILES)/documentation.make
-endif

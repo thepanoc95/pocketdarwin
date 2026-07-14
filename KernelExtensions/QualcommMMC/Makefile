@@ -1,27 +1,12 @@
-# Minimal ARM32-compatible build scaffold for Qualcomm MMC/SDHCI
-SHELL := /bin/bash
-ROOTDIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../..)
-OUTDIR ?= $(ROOTDIR)/build/qualcommmmc
-CXX ?= clang++
-CXXFLAGS ?= -O2 -Wall -Wextra -std=gnu++17
-OBJS := $(OUTDIR)/AndroidPlatformDevice.o $(OUTDIR)/MSM8916SDHCI.o
+include "$(GNUSTEP_MAKEFILES)/common.make"
 
-.PHONY: all clean
+KEXT_NAME = QualcommMMC
+QualcommMMC_OBJC_FILES = \
+	QualcommMMC.mm \
+	QualcommMMCFileSystems.mm \
+	QualcommMMCFileSystemExt3.mm \
+	QualcommMMCFileSystemFAT.mm \
 
-all: $(OUTDIR)/qualcomm_mmc_test.o
+QualcommMMC_OUT_NSBundle := QualcommMMC.kext
 
-$(OUTDIR):
-	mkdir -p $@
-
-$(OUTDIR)/AndroidPlatformDevice.o: $(ROOTDIR)/drivers/AndroidPlatformDevice.cpp | $(OUTDIR)
-	$(CXX) $(CXXFLAGS) -I$(ROOTDIR)/drivers -c $< -o $@
-
-$(OUTDIR)/MSM8916SDHCI.o: $(ROOTDIR)/drivers/harpia/MSM8916SDHCI.cpp | $(OUTDIR)
-	$(CXX) $(CXXFLAGS) -I$(ROOTDIR)/drivers -c $< -o $@
-
-$(OUTDIR)/qualcomm_mmc_test.o: $(OBJS)
-	@mkdir -p $(OUTDIR)
-	printf '#include <stdint.h>\nint qualcomm_mmc_test(void) { return 0; }\n' | $(CXX) $(CXXFLAGS) -x c++ -c -o $@ -
-
-clean:
-	rm -rf $(OUTDIR)
+include "$(GNUKEXT_MAKEFILES)/kext.make"

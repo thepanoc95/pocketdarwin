@@ -1,0 +1,44 @@
+#
+# GNUmakefile.postamble - KotlinKit Framework
+#
+# Things to do before compiling
+# before-all::
+
+# Things to do after compiling
+# after-all::
+
+# Things to do before installing
+# before-install::
+
+# Things to do after installing
+# after-install::
+# Copy Kotlin runtime files if available
+ifneq ($(wildcard $(srcdir)/Kotlin),)
+	@echo "Copying Kotlin runtime files..."
+	$(MKDIRS) $(DESTDIR)$(GNUSTEP_LIBRARIES)/$(PACKAGE_NAME)/Kotlin
+	$(INSTALL) -d -m 644 Kotlin/*.kt $(DESTDIR)$(GNUSTEP_LIBRARIES)/$(PACKAGE_NAME)/Kotlin/
+endif
+
+# Things to do before uninstalling
+# before-uninstall::
+
+# Things to do after uninstalling
+# after-uninstall::
+
+# Things to do before cleaning
+# before-clean::
+
+# Things to do after cleaning
+# after-clean::
+
+# Things to do before distcleaning
+# before-distclean::
+
+# Things to do after distcleaning
+# after-distclean::
+   
+# Things to do before checking
+# before-check::
+
+# Things to do after checking
+# after-check::

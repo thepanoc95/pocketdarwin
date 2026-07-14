@@ -1,0 +1,5 @@
+#
+# GNUmakefile.postamble - Kotlin Kext Example
+#
+# after-install::
+#	@echo "Kext built with Kotlin support"

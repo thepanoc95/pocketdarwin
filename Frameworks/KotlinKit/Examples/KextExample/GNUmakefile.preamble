@@ -1,0 +1,6 @@
+#
+# GNUmakefile.preamble - Kotlin Kext Example
+#
+
+# Enable Kotlin support
+ENABLE_KOTLIN_KEXT = yes
