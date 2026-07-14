@@ -311,7 +311,7 @@ void kprintf(const char *format, ...);
  * Convert a integer constant (typically a #define or enum) to a string
  * via an array of IONamedValue.
  */
-const char *IOFindNameForValue(int value, 
+const char *IOFindNameForValue(uint32_t value, 
 	const IONamedValue *namedValueArray);
 
 /*

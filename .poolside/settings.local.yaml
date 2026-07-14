@@ -1,0 +1,28 @@
+tools:
+    shell:
+        allow:
+            - find *
+            - head *
+            - ls *
+            - xargs *
+            - echo *
+            - mkdir *
+            - grep *
+            - rm *
+            - file *
+            - which mig
+            - cd *
+            - make *
+            - tail *
+            - cat *
+            - /home/milo/Documents/PocketDarwin/toolchain/bin/arm-linux-gnueabi-clang *
+            - touch *
+            - /home/milo/Documents/PocketDarwin/BuildHost/xnu-deps-linux/out/bin/mig *
+            - -include *
+            - cp *
+            - -I/home/milo/Documents/PocketDarwin/BuildHost/xnu-deps-linux/include *
+            - -I *
+            - $gnumake *
+            - ln *
+            - "true"
+            - nm *

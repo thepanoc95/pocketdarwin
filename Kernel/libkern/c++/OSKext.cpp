@@ -108,7 +108,7 @@ static void * GetAppleTEXTHashForKext(OSKext * theKext, OSDictionary *theInfoDic
 #define VM_MAPPED_KEXTS 1
 #define KASLR_KEXT_DEBUG 0
 #define KASLR_IOREG_DEBUG 0
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__arm64__)
 #define VM_MAPPED_KEXTS 0
 #define KASLR_KEXT_DEBUG 0
 #define KASLR_IOREG_DEBUG 0
@@ -757,7 +757,7 @@ OSKext::removeKextBootstrap(void)
 
     kernel_segment_command_t * seg_to_remove         = NULL;
 
-#if defined(__arm__)
+#if defined(__arm__) || defined(__arm64__)
     const char               * dt_segment_name       = NULL;
     void                     * segment_paddress      = NULL;
     int                        segment_size          = 0;
@@ -817,7 +817,7 @@ OSKext::removeKextBootstrap(void)
         read_random((void *) seg_to_remove->vmaddr, seg_to_remove->vmsize);
         ml_static_mfree(seg_to_remove->vmaddr, seg_to_remove->vmsize);
     }
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__arm64__)
     dt_segment_name = "Kernel-__KLD";
     if (0 == IODTGetLoaderInfo(dt_segment_name, &segment_paddress, &segment_size)) {
         IODTFreeLoaderInfo(dt_segment_name, (void *)segment_paddress,
@@ -4033,6 +4033,8 @@ finish:
 #define ARCHNAME "x86_64"
 #elif defined(__arm__)
 #define ARCHNAME "arm"
+#elif defined(__arm64__)
+#define ARCHNAME "arm64"
 #else
 #error architecture not supported
 #endif

@@ -6,6 +6,13 @@ build/
 *.img
 *.efi
 a.out
+*.app
+obj/
+*.framework
+*.bundle
+derived_src/
+*.dtb
+
 # IDE
 .cproject
 .project

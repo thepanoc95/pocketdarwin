@@ -30,7 +30,7 @@
 
 #if defined (__i386__) || defined(__x86_64__)
 #include "i386/pal_routines.h"
-#elif defined (__arm__)
+#elif defined (__arm__) || defined (__arm64__) || defined (__ARM64__)
 
 struct pal_cpu_data; /* Defined per-platform */
 struct pal_pcb; /* Defined per-platform */

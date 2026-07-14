@@ -205,8 +205,8 @@
 
 - (void)setupUI {
     NSView *contentView = [self contentView];
-    [contentView setWantsLayer:YES];
-    contentView.layer.backgroundColor = [NSColor colorWithCalibratedWhite:0.95 alpha:1.0].CGColor;
+        // Note: GNUstep doesn't support CALayer or setBackgroundColor
+        // Using standard appearance
     
     // Title
     NSTextField *titleField = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 450, 560, 40)];
@@ -284,7 +284,7 @@
     
     NSButton *applyButton = [[NSButton alloc] initWithFrame:NSMakeRect(440, 30, 140, 32)];
     [applyButton setTitle:@"Apply Selected"];
-    [applyButton setBezelStyle:NSBezelStyleRounded];
+    [applyButton setBezelStyle:NSRoundedBezelStyle];
     [applyButton setTarget:self];
     [applyButton setAction:@selector(applySelectedPatch:)];
     [contentView addSubview:applyButton];

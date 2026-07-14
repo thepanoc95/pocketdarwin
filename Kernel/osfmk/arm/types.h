@@ -85,7 +85,7 @@ typedef __darwin_intptr_t intptr_t;
 typedef unsigned long uintptr_t;
 #endif
 
-#if defined(__arm__)
+#if defined(__arm__) || defined(__arm64__) || defined(__ARM64__)
 typedef u_int32_t user32_addr_t;
 typedef u_int32_t user32_size_t;
 typedef int32_t user32_ssize_t;

@@ -140,7 +140,7 @@ typedef struct
  * Map between #defined or enum'd constants and text description.
  */
 typedef struct {
-	int value;
+	uint32_t value;
 	const char *name;
 } IONamedValue;
 

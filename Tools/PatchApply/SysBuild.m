@@ -15,6 +15,8 @@
     NSString *selectedDeviceBundle;
     NSTextField *deviceLabel;
     NSPopUpButton *boardConfigPopup;
+    NSTimer *outputTimer;
+    NSFileHandle *outputHandle;
 }
 - (void)build:(id)sender;
 - (void)clean:(id)sender;
@@ -29,6 +31,7 @@
 - (void)selectSourceFolder:(id)sender;
 - (void)createSDCardImage:(id)sender;
 - (void)flashLk2nd:(id)sender;
+- (void)readOutput:(NSTimer *)timer;
 @end
 
 @implementation BuildController
@@ -39,6 +42,7 @@
     if (self) {
         currentTask = nil;
         sourceFolder = @"/workspaces/pocketdarwin";
+        outputTimer = nil;
     }
     return self;
 }
@@ -60,7 +64,7 @@
     [titleLabel setEditable:NO];
     [titleLabel setBezeled:NO];
     [titleLabel setDrawsBackground:NO];
-    NSFont *titleFont = [NSFont fontWithName:@"Adawita" size:16];
+    NSFont *titleFont = [NSFont systemFontOfSize:16];
     [titleLabel setFont:titleFont];
     [contentView addSubview:titleLabel];
     
@@ -72,7 +76,7 @@
     outputView = [[NSTextView alloc] initWithFrame:NSMakeRect(0, 0, 980, 500)];
     [outputView setDelegate:self];
     [outputView setEditable:NO];
-    [outputView setFont:[NSFont fontWithName:@"Adawita" size:11]];
+    [outputView setFont:[NSFont systemFontOfSize:11]];
     [scrollView setDocumentView:outputView];
     [contentView addSubview:scrollView];
     
@@ -181,6 +185,26 @@
     return [result length] > 0 ? result : @"make";
 }
 
+- (void)readOutput:(NSTimer *)timer
+{
+    if (!outputHandle || !currentTask) {
+        return;
+    }
+    
+    NSData *data;
+    while ((data = [outputHandle availableData]) && [data length]) {
+        NSString *output = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        NSTextStorage *textStorage = [outputView textStorage];
+        [textStorage appendAttributedString:[[NSAttributedString alloc] initWithString:output]];
+        [outputView scrollRangeToVisible:NSMakeRange([textStorage length], 0)];
+    }
+    
+    if ([currentTask isRunning] == NO) {
+        [outputTimer invalidate];
+        outputTimer = nil;
+    }
+}
+
 - (void)build:(id)sender
 {
     if (currentTask) {
@@ -207,21 +231,10 @@
     [stopButton setEnabled:YES];
     [progressIndicator startAnimation:self];
     
-    NSFileHandle *readHandle = [pipe fileHandleForReading];
+    outputHandle = [pipe fileHandleForReading];
+    outputTimer = [NSTimer scheduledTimerWithTimeInterval:0.1 target:self selector:@selector(readOutput:) userInfo:nil repeats:YES];
     
     [currentTask launch];
-    
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSData *data;
-        while ((data = [readHandle availableData]) && [data length]) {
-            NSString *output = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-            dispatch_async(dispatch_get_main_queue(), ^{
-                NSTextStorage *textStorage = [outputView textStorage];
-                [textStorage appendAttributedString:[[NSAttributedString alloc] initWithString:output]];
-                [outputView scrollRangeToVisible:NSMakeRange([textStorage length], 0)];
-            });
-        }
-    });
 }
 
 - (void)clean:(id)sender
@@ -250,21 +263,10 @@
     [stopButton setEnabled:YES];
     [progressIndicator startAnimation:self];
     
-    NSFileHandle *readHandle = [pipe fileHandleForReading];
+    outputHandle = [pipe fileHandleForReading];
+    outputTimer = [NSTimer scheduledTimerWithTimeInterval:0.1 target:self selector:@selector(readOutput:) userInfo:nil repeats:YES];
     
     [currentTask launch];
-    
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSData *data;
-        while ((data = [readHandle availableData]) && [data length]) {
-            NSString *output = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-            dispatch_async(dispatch_get_main_queue(), ^{
-                NSTextStorage *textStorage = [outputView textStorage];
-                [textStorage appendAttributedString:[[NSAttributedString alloc] initWithString:output]];
-                [outputView scrollRangeToVisible:NSMakeRange([textStorage length], 0)];
-            });
-        }
-    });
 }
 
 - (void)stop:(id)sender
@@ -277,8 +279,8 @@
 - (void)taskCompleted:(NSNotification *)notification
 {
     [[NSNotificationCenter defaultCenter] removeObserver:self
-                                                   name:NSTaskDidTerminateNotification
-                                                 object:currentTask];
+                                                     name:NSTaskDidTerminateNotification
+                                                   object:currentTask];
     
     int status = [currentTask terminationStatus];
     NSString *statusMsg = (status == 0) ? @"\n✓ Build completed successfully\n" : [NSString stringWithFormat:@"\n✗ Build failed with status %d\n", status];
@@ -293,6 +295,7 @@
     [progressIndicator stopAnimation:self];
     
     currentTask = nil;
+    outputHandle = nil;
 }
 
 - (void)selectSourceFolder:(id)sender
@@ -305,13 +308,21 @@
     [openPanel setMessage:@"Choose the root folder of your PocketDarwin source code"];
     [openPanel setDirectoryURL:[NSURL fileURLWithPath:sourceFolder]];
     
-    [openPanel beginWithCompletionHandler:^(NSInteger result) {
-        if (result == NSFileHandlingPanelOKButton) {
-            NSURL *selectedURL = [[openPanel URLs] objectAtIndex:0];
-            sourceFolder = [selectedURL path];
-            [folderPathLabel setStringValue:sourceFolder];
-        }
-    }];
+    [openPanel beginSheetForDirectory:sourceFolder 
+                                file:nil 
+                               types:nil 
+                  modalForWindow:window 
+                   modalDelegate:self 
+                  didEndSelector:@selector(sourceFolderPanelDidEnd:returnCode:contextInfo:) 
+                     contextInfo:nil];
+}
+
+- (void)sourceFolderPanelDidEnd:(NSOpenPanel *)panel returnCode:(NSInteger)returnCode contextInfo:(void *)contextInfo
+{
+    if (returnCode == NSOKButton) {
+        sourceFolder = [[panel filename] retain];
+        [folderPathLabel setStringValue:sourceFolder];
+    }
 }
 
 - (void)selectDeviceBundle:(id)sender
@@ -323,14 +334,21 @@
     [openPanel setTitle:@"Select Device Bundle"];
     [openPanel setMessage:@"Choose a .device NSBundle for device configuration"];
     
-    [openPanel beginWithCompletionHandler:^(NSInteger result) {
-        if (result == NSFileHandlingPanelOKButton) {
-            NSURL *selectedURL = [[openPanel URLs] objectAtIndex:0];
-            selectedDeviceBundle = [selectedURL path];
-            NSString *bundleName = [[selectedURL lastPathComponent] stringByDeletingPathExtension];
-            [deviceLabel setStringValue:bundleName];
-        }
-    }];
+    [openPanel beginSheetForDirectory:NSHomeDirectory()
+                                file:nil
+                               types:nil
+                  modalForWindow:window
+                   modalDelegate:self
+                  didEndSelector:@selector(deviceBundlePanelDidEnd:returnCode:contextInfo:)
+                     contextInfo:nil];
+}
+
+- (void)deviceBundlePanelDidEnd:(NSOpenPanel *)panel returnCode:(NSInteger)returnCode contextInfo:(void *)contextInfo
+{
+    if (returnCode == NSOKButton) {
+        selectedDeviceBundle = [[[panel filename] lastPathComponent] retain];
+        [deviceLabel setStringValue:selectedDeviceBundle];
+    }
 }
 
 - (void)boardConfigChanged:(id)sender

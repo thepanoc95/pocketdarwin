@@ -2340,8 +2340,8 @@ unsigned char *getProcName(struct proc *proc) {
 #define STACKSHOT_SUBSYS_UNLOCK() lck_mtx_unlock(&stackshot_subsys_mutex)
 #if defined(__i386__) || defined (__x86_64__)
 #define TRAP_DEBUGGER __asm__ volatile("int3");
-#elif defined(__arm__)
-#define TRAP_DEBUGGER __asm__ volatile("bkpt #0");
+#elif defined(__arm__) || defined(__arm64__)
+#define TRAP_DEBUGGER __asm__ volatile("brk #0");
 #endif
 
 #define SANE_TRACEBUF_SIZE (8 * 1024 * 1024)

@@ -3,7 +3,7 @@
 # Translates Apple-specific compiler flags to LLVM Clang equivalents.
 # For .s files, preprocess, fix ; after .code 16, then assemble.
 CLANG=/usr/bin/clang
-COMPAT_HEADER="/workspaces/pocketdarwin/BuildHost/xnu-deps-linux/include/_xnu_compat.h"
+COMPAT_HEADER="/home/milo/Documents/PocketDarwin/BuildHost/xnu-deps-linux/include/_xnu_compat.h"
 SKIP=0
 ARGS=()
 TARGET_SET=0
@@ -39,8 +39,10 @@ for arg in "$@"; do
     esac
 done
 
-TOOLCHAIN_DIR="/workspaces/pocketdarwin/toolchain/bin"
-TARGET_ARGS=("--target=arm-linux-gnueabi" $MARCH)
+TOOLCHAIN_DIR="/home/milo/Documents/PocketDarwin/toolchain/bin"
+XNU_INCLUDE_DIR="/home/milo/Documents/PocketDarwin/BuildHost/xnu-deps-linux/include"
+KERNEL_SRC_DIR="/home/milo/Documents/PocketDarwin/Kernel"
+TARGET_ARGS=("--target=arm-linux-gnueabi" -I"$XNU_INCLUDE_DIR" -I"$KERNEL_SRC_DIR/osfmk" -I"$KERNEL_SRC_DIR" $MARCH)
 
 # Check if -no-integrated-as is in the args
 NO_INTEGRATED_AS=0

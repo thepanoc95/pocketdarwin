@@ -1,5 +1,5 @@
 /*
- * Copyright 2024, The PocketDarwin Team.
+ * Copyright 2026, The PocketDarwin project.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -247,24 +247,20 @@ static void _fb_putc(int c)
 
 void msm8916_framebuffer_init(void)
 {
-    void *framebuffer = pmap_steal_memory(1024 * 768 * 4);
-    void *framebuffer_phys = pmap_extract(kernel_pmap, framebuffer);
+    /* Framebuffer initialization for ARM64.
+     * The framebuffer is configured by the bootloader (lk2nd) which passes
+     * the framebuffer info in boot_args. If no framebuffer is provided,
+     * we use UART for early console output.
+     */
 
-    uint32_t depth = 4;
-    uint32_t width = 1024;
-    uint32_t height = 768;
-    uint32_t pitch = (width * depth);
+    if (PE_state.video.v_baseAddr == 0) {
+        kprintf(KPRINTF_PREFIX "framebuffer: using UART console only\n");
+        return;
+    }
 
-    PE_state.video.v_baseAddr = (unsigned long)framebuffer_phys;
-    PE_state.video.v_rowBytes = width * 2;
-    PE_state.video.v_width = width;
-    PE_state.video.v_height = height;
-    PE_state.video.v_depth = 2 * (8);
-
-    kprintf(KPRINTF_PREFIX "framebuffer initialized\n");
-    bzero(framebuffer, (pitch * height));
-
-    initialize_screen((void *)&PE_state.video, kPETextMode);
+    kprintf(KPRINTF_PREFIX "framebuffer: base=0x%lx width=%lu height=%lu\n",
+        PE_state.video.v_baseAddr, PE_state.video.v_width,
+        PE_state.video.v_height);
 }
 
 int msm8916_halt_restart(int type)

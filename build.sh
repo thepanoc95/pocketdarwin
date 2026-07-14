@@ -18,8 +18,9 @@
 set -e
 
 BOARD="harpia"
-ARCH="arm64"
-CROSS_COMPILE="aarch64-linux-gnu-"
+# harpia is MSM8916 Cortex-A53 (ARMv7 32-bit)
+ARCH="arm"
+CROSS_COMPILE="arm-eabi-"
 CONFIG="RELEASE"
 JOBS=""
 VERBOSE=""

@@ -10,7 +10,7 @@
 #define _CORECRYPTO_CC_CONFIG_H_
 
 #if !defined(CCN_UNIT_SIZE)
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__arm64__) || defined(__ARM64__)
 #define CCN_UNIT_SIZE  8
 #elif defined(__arm__) || defined(__i386__)
 #define CCN_UNIT_SIZE  4

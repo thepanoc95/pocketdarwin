@@ -306,12 +306,35 @@ endif
 #
 # Default ARCH_FLAGS, for use with compiler/linker/assembler/mig drivers
 #
+ifeq ($(UNAME_S),Linux)
+ARCH_FLAGS_I386		  = --target=i386-apple-darwin
+ARCH_FLAGS_X86_64	  = --target=x86_64-apple-darwin
+ARCH_FLAGS_ARM64	  = --target=aarch64-apple-darwin
+else
 ARCH_FLAGS_I386		  = -arch i386
 ARCH_FLAGS_X86_64	  = -arch x86_64
-ARCH_FLAGS_ARM64	= -arch arm64
+ARCH_FLAGS_ARM64	  = -arch arm64
+endif
 
 ARCH_FLAGS_ARM		  = $($(addsuffix $(MACHINE_CONFIG),ARCH_FLAGS_ARM_))
 
+ifeq ($(UNAME_S),Linux)
+ARCH_FLAGS_ARM_MSM8XXX		= --target=armv7-apple-darwin
+ARCH_FLAGS_ARM_MSM8916_HARPIA	= --target=armv7-apple-darwin
+ARCH_FLAGS_ARM_S5L8930X	= --target=armv7-apple-darwin
+ARCH_FLAGS_ARM_S5L8922X	= --target=armv7-apple-darwin
+ARCH_FLAGS_ARM_S5L8920X	= --target=armv7-apple-darwin
+ARCH_FLAGS_ARM_S5L8720X	= --target=armv6-apple-darwin
+ARCH_FLAGS_ARM_S5L8900XRB	= --target=armv6-apple-darwin
+ARCH_FLAGS_ARM_OMAP3530	= --target=armv7-apple-darwin
+ARCH_FLAGS_ARM_OMAP3430_RX51 = --target=armv7-apple-darwin
+ARCH_FLAGS_ARM_OMAP335X	= --target=armv7-apple-darwin
+ARCH_FLAGS_ARM_ARMPBA8	= --target=armv7-apple-darwin
+ARCH_FLAGS_ARM_MSM8960_TOUCHPAD	= --target=armv7-apple-darwin
+ARCH_FLAGS_ARM_RASPBERRYPI	= --target=armv6-apple-darwin
+ARCH_FLAGS_ARM_ARM_RVEB_V6	= --target=armv6-apple-darwin
+ARCH_FLAGS_ARM_IMX53		= --target=armv7-apple-darwin
+else
 ARCH_FLAGS_ARM_MSM8XXX		= -arch armv7
 ARCH_FLAGS_ARM_MSM8916_HARPIA	= -arch armv7
 ARCH_FLAGS_ARM_S5L8930X	= -arch armv7
@@ -327,7 +350,7 @@ ARCH_FLAGS_ARM_MSM8960_TOUCHPAD	= -arch armv7
 ARCH_FLAGS_ARM_RASPBERRYPI	= -arch armv6
 ARCH_FLAGS_ARM_ARM_RVEB_V6	= -arch armv6
 ARCH_FLAGS_ARM_IMX53		= -arch armv7
-ARCH_FLAGS_ARM_MSM8916_HARPIA = -arch armv7
+endif
 
 #
 # Default CFLAGS
@@ -428,7 +451,7 @@ export CFLAGS 	= $(CFLAGS_GEN) \
 OTHER_CXXFLAGS	=
 
 ifeq ($(UNAME_S),Linux)
-OTHER_CXXFLAGS += -std=gnu++11 -Wno-register
+OTHER_CXXFLAGS += -std=gnu++11 -Wno-register -Wno-c++11-narrowing
 OTHER_CFLAGS += -Wno-cast-align -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast
 endif
 

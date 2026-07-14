@@ -90,7 +90,7 @@ extern int			mach_trap_count;
 #define MACH_TRAP(name, arg_count, munge32, munge64)		\
 	{ (arg_count), (kern_return_t (*)(void *)) (name), #name }
 #endif /* !MACH_ASSERT */
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__arm64__)
 #if	!MACH_ASSERT
 #define MACH_TRAP(name, arg_count, munge32, munge64)		\
 	{ (arg_count), (kern_return_t (*)(void *)) (name), #name }
@@ -98,8 +98,8 @@ extern int			mach_trap_count;
 #define MACH_TRAP(name, arg_count, munge32, munge64)		\
 	{ (arg_count), (kern_return_t (*)(void *)) (name), #name }
 #endif /* !MACH_ASSERT */
-#else  /* !defined(__i386__) && !defined(__x86_64__) && !defined(__arm__) */
+#else  /* !defined(__i386__) && !defined(__x86_64__) && !defined(__arm__) && !defined(__arm64__) */
 #error Unsupported architecture
-#endif /* !defined(__i386__) && !defined(__x86_64__) && !defined(__arm__) */
+#endif /* !defined(__i386__) && !defined(__x86_64__) && !defined(__arm__) && !defined(__arm64__) */
 
 #endif	/* _KERN_SYSCALL_SW_H_ */

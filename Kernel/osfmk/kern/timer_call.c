@@ -342,7 +342,7 @@ timer_call_enter_internal(
 		deadline += slop;
 	}
 
-#if	defined(__i386__) || defined(__x86_64__) || defined(__arm__)	
+#if	defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__arm64__)
 	uint64_t ctime = mach_absolute_time();
 	if (__improbable(deadline < ctime)) {
 		uint64_t delta = (ctime - deadline);

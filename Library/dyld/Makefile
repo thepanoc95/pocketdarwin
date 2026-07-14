@@ -110,7 +110,7 @@ ${.OBJDIR}/lib${LIB}.a: mkdirs ${OBJS}
 	mkdir -p ${RAVYN_SDKROOT}/usr/lib/system
 	cp -f ${.TARGET} ${RAVYN_SDKROOT}/usr/lib/system/
 
-SUBDIR = dyld
+SUBDIR := dyld
 
-.include <bsd.subdir.mk>
+include <bsd.subdir.mk>
 

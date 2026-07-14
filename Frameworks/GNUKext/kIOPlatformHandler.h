@@ -1,0 +1,61 @@
+/*
+   Project: GNUKext
+
+   Copyright (C) 2026 Free Software Foundation
+
+   Author: milo
+
+   Created: 2026-07-13 20:12:30 -0300 by milo
+
+   This application is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public
+   License as published by the Free Software Foundation; either
+   version 2 of the License, or (at your option) any later version.
+
+   This application is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Library General Public License for more details.
+
+   You should have received a copy of the GNU General Public
+   License along with this library; if not, write to the Free
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
+*/
+
+#ifndef _KOPLATFORMHANDLER_H_
+#define _KOPLATFORMHANDLER_H_
+
+#import <Foundation/Foundation.h>
+
+@class GNUKext;
+
+@interface kIOPlatformHandler : NSObject
+
++ (BOOL)isNativePlatform;
++ (NSString *)platformName;
++ (NSString *)kernelVersionString;
++ (NSString *)machineArchitecture;
+
++ (NSString *)kextInstallPathForIdentifier:(NSString *)identifier;
++ (BOOL)isModuleLoaded:(NSString *)moduleName;
+
++ (BOOL)loadModuleAtPath:(NSString *)path;
++ (BOOL)unloadModuleNamed:(NSString *)name;
++ (NSArray *)loadedModules;
+
++ (BOOL)installKext:(GNUKext *)kext error:(NSError **)error;
++ (BOOL)uninstallKextWithIdentifier:(NSString *)identifier error:(NSError **)error;
+
+@end
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void kIOPlatformInitialize(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* _KOPLATFORMHANDLER_H_ */

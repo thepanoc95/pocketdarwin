@@ -1,7 +1,7 @@
 #!/bin/bash
 # XNU Clang++ wrapper for ARM64 (AArch64) cross-compilation on Linux.
 CLANG=/usr/bin/clang++
-COMPAT_HEADER="/workspaces/pocketdarwin/BuildHost/xnu-deps-linux/include/_xnu_compat.h"
+COMPAT_HEADER="/home/milo/Documents/PocketDarwin/BuildHost/xnu-deps-linux/include/_xnu_compat.h"
 SKIP=0
 ARGS=()
 TARGET_SET=0
@@ -54,11 +54,12 @@ for arg in "$@"; do
     esac
 done
 
+XNU_INCLUDE_DIR="/home/milo/Documents/PocketDarwin/BuildHost/xnu-deps-linux/include"
 if [ "$TARGET_SET" -eq 0 ]; then
     if [ "$IS_PREPROC" -eq 0 ]; then
-        ARGS=("--target=aarch64-linux-gnu" "-fdeclspec" "-D__arm64__" "-D__ARM64_ARCH__=8" "-include" "$COMPAT_HEADER" "${ARGS[@]}")
+        ARGS=("--target=aarch64-linux-gnu" "-fdeclspec" "-D__arm64__" "-D__ARM64_ARCH__=8" "-include" "$COMPAT_HEADER" -I"$XNU_INCLUDE_DIR" "${ARGS[@]}")
     else
-        ARGS=("--target=aarch64-linux-gnu" "${ARGS[@]}")
+        ARGS=("--target=aarch64-linux-gnu" "-I$XNU_INCLUDE_DIR" "${ARGS[@]}")
     fi
 fi
 

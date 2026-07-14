@@ -522,6 +522,8 @@ static volatile uint32_t config_displayed = 0;
 
 #ifdef __arm__
 #define	panic_display_pal_info() do { } while(0)
+#elif defined(__arm64__)
+extern void panic_display_pal_info(void);
 #endif
 
 #ifdef __arm__

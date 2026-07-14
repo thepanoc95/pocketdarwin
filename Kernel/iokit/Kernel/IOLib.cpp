@@ -815,7 +815,7 @@ void IOPanic(const char *reason)
  */
 static char noValue[80];	// that's pretty
 
-const char *IOFindNameForValue(int value, const IONamedValue *regValueArray)
+const char *IOFindNameForValue(uint32_t value, const IONamedValue *regValueArray)
 {
 	for( ; regValueArray->name; regValueArray++) {
 		if(regValueArray->value == value)

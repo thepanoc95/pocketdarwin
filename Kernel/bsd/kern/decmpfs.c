@@ -43,6 +43,7 @@ char unregister_decmpfs_decompressor;
 #include <sys/decmpfs.h>
 #include <sys/uio_internal.h>
 #include <libkern/OSByteOrder.h>
+#include <libkern/OSAtomic.h>
 
 #pragma mark --- debugging ---
 

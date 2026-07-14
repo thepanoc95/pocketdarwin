@@ -1,0 +1,163 @@
+#!/bin/bash
+# Local MIG wrapper that translates -arch to --target on Linux
+# This replaces the system MIG's broken -arch handling
+
+REAL_MIG=/usr/libexec/migcom
+
+scriptPath=$(realpath "$0")
+scriptRoot=$(dirname "$scriptPath")
+migcomPath="${scriptRoot}/../libexec/migcom"
+
+if [ ! -x "$migcomPath" ]; then
+    migcomPath="$REAL_MIG"
+fi
+
+if [ -n "${SDKROOT}" ]; then
+    sdkRoot="${SDKROOT}"
+fi
+
+if [ -z "${MIGCC}" ]; then
+    xcrunPath="/usr/bin/xcrun"
+    if [ -x "${xcrunPath}" ]; then
+        MIGCC=$("${xcrunPath}" -sdk "$sdkRoot" -find cc 2>/dev/null)
+    fi
+    if [ -z "${MIGCC}" ]; then
+        MIGCC=clang
+    fi
+fi
+
+C=${MIGCC}
+M=${MIGCOM-${migcomPath}}
+
+cppflags="-D__MACH30__"
+
+files=
+arch=$(uname -m)
+
+# On Linux, translate arch to --target triple
+if [ "$(uname -s)" = "Linux" ]; then
+    case "$arch" in
+        arm64|aarch64) arch_flag="--target=aarch64-apple-darwin" ;;
+        armv7|arm)     arch_flag="--target=armv7-apple-darwin" ;;
+        x86_64)        arch_flag="--target=x86_64-apple-darwin" ;;
+        i386)          arch_flag="--target=i386-apple-darwin" ;;
+        *)             arch_flag="-arch $arch" ;;
+    esac
+else
+    arch_flag="-arch $arch"
+fi
+
+MKTEMP=$(which mktemp)
+
+WORKTMP=$(${MKTEMP} -d "${TMPDIR:-/tmp}/mig.XXXXXX")
+if [ $? -ne 0 ]; then
+    echo "Failure creating temporary work directory: ${WORKTMP}"
+    echo "Exiting..."
+    exit 1
+fi
+
+# Parse arguments
+until [ $# -eq 0 ]
+do
+    case "$1" in
+        -[dtqkKQvVtTrRsSlLxXnN] ) migflags=( "${migflags[@]}" "$1" ); shift;;
+        -i      ) sawI=1; migflags=( "${migflags[@]}" "$1" "$2" ); shift; shift;;
+        -user   ) user="$2"; if [ ! "${sawI-}" ]; then migflags=( "${migflags[@]}" "$1" "$2" ); fi; shift; shift;;
+        -server ) server="$2"; migflags=( "${migflags[@]}" "$1" "$2" ); shift; shift;;
+        -header ) header="$2"; migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
+        -sheader ) sheader="$2"; migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
+        -iheader ) iheader="$2"; migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
+        -dheader ) dheader="$2"; migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
+        -arch ) arch="$2";
+            if [ "$(uname -s)" = "Linux" ]; then
+                case "$2" in
+                    arm64|aarch64) arch_flag="--target=aarch64-apple-darwin" ;;
+                    armv7|arm)     arch_flag="--target=armv7-apple-darwin" ;;
+                    x86_64)        arch_flag="--target=x86_64-apple-darwin" ;;
+                    i386)          arch_flag="--target=i386-apple-darwin" ;;
+                    *)             arch_flag="-arch $2" ;;
+                esac
+            else
+                arch_flag="-arch $2"
+            fi
+            shift; shift;;
+        -maxonstack ) migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
+        -split ) migflags=( "${migflags[@]}" "$1" ); shift;;
+        -MD ) sawMD=1; cppflags="$cppflags $1"; shift;;
+        -cpp) shift; shift;;
+        -cc) C="$2"; shift; shift;;
+        -migcom) M="$2"; shift; shift;;
+        -isysroot) sdkRoot=$(realpath "$2"); shift; shift;;
+        -* ) cppflags="$cppflags $1"; shift;;
+        * ) break;;
+    esac
+done
+
+# Process files
+until [ $# -eq 0 ]
+do
+    case "$1" in
+        -[dtqkKQvVtTrRsSlLxXnN] ) shift; continue;;
+        -i      ) shift; shift; continue;;
+        -user   ) shift; shift; continue;;
+        -server ) shift; shift; continue;;
+        -header ) shift; shift; continue;;
+        -sheader ) shift; shift; continue;;
+        -iheader ) shift; shift; continue;;
+        -dheader ) shift; shift; continue;;
+        -arch ) shift; shift; continue;;
+        -maxonstack ) shift; shift; continue;;
+        -split ) shift; continue;;
+        -MD ) shift; continue;;
+        -cpp) shift; shift; continue;;
+        -cc) shift; shift; continue;;
+        -migcom) shift; shift; continue;;
+        -isysroot) shift; shift; continue;;
+        -* ) shift; continue;;
+        * ) file="$1"; shift;;
+    esac
+    base="$(basename "${file}" .defs)"
+    temp="${WORKTMP}/${base}.$$"
+    sourcedir="$(dirname "${file}")"
+    if [ -n "${sdkRoot}" ]; then
+        iSysRootParm=( "-isysroot" "${sdkRoot}" )
+    fi
+    if [ ! -r "${file}" ]; then
+        echo "error: cannot read file ${file}"
+        rm -rf ${WORKTMP}
+        exit 1
+    fi
+    rm -f "${temp}.c" "${temp}.d"
+    (echo '#line 1 '\"${file}\" ; cat "${file}" ) > "${temp}.c"
+    "$C" -E ${arch_flag} ${cppflags} -I "${sourcedir}" "${iSysRootParm[@]}" "${temp}.c" | "$M" "${migflags[@]}" | sed 's/()\([^a-zA-Z_]*memcpy\)/\1/g; s/()\([^a-zA-Z_]*bcopy\)/\1/g; s/()\([^a-zA-Z_]*memset\)/\1/g; s/()\([^a-zA-Z_]*bzero\)/\1/g'
+    if [ ${PIPESTATUS[1]} -ne 0 ]; then
+        rm -rf "${temp}.c" "${temp}.d" "${WORKTMP}"
+        exit 1
+    fi
+    if [ "${sawMD}" -a -f "${temp}.d" ]; then
+        deps=
+        s=
+        rheader="${header-${base}.h}"
+        if [ "${rheader}" != /dev/null ]; then deps="${deps}${s}${rheader}"; s=" "; fi
+        ruser="${user-${base}User.c}"
+        if [ "${ruser}" != /dev/null ]; then deps="${deps}${s}${ruser}"; s=" "; fi
+        rserver="${server-${base}Server.c}"
+        if [ "${rserver}" != /dev/null ]; then deps="${deps}${s}${rserver}"; s=" "; fi
+        rsheader="${sheader-/dev/null}"
+        if [ "${rsheader}" != /dev/null ]; then deps="${deps}${s}${rsheader}"; s=" "; fi
+        riheader="${iheader-/dev/null}"
+        if [ "${riheader}" != /dev/null ]; then deps="${deps}${s}${riheader}"; s=" "; fi
+        rdheader="${dheader-/dev/null}"
+        if [ "${rdheader}" != /dev/null ]; then deps="${deps}${s}${rdheader}"; s=" "; fi
+        for target in "${deps}"; do
+            sed -e 's;^'"${temp}"'.o[ 	]*:;'"${target}"':;' \
+                -e 's;: '"${temp}"'.c;: '"$file"';' \
+            < "${temp}.d" > "${target}.d"
+        done
+        rm -f "${temp}.d"
+    fi
+    rm -f "${temp}.c"
+done
+
+/bin/rmdir "${WORKTMP}"
+exit 0

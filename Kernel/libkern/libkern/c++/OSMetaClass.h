@@ -380,7 +380,7 @@ _ptmf2ptf(const OSMetaClassBase *self, void (OSMetaClassBase::*func)(void))
         return map.fPFN;
     }
 }
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__arm64__) || defined(__ARM64__)
 
 static inline _ptf_t
 _ptmf2ptf(const OSMetaClassBase *self, void (OSMetaClassBase::*func)(void))

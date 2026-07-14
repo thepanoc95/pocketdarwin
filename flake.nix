@@ -51,10 +51,7 @@
                   aarch64-linux-gnu-toolchain = aarch64Cross pkgs;
                   arm-linux-gnueabihf-toolchain = armCross pkgs;
                   arm-none-eabi-toolchain = armNoneEabihf pkgs;
-                  gnustep-base              = pkgs.gnustep.base;
-                  gnustep-make              = pkgs.gnustep.make;
-                  gnustep-gui               = pkgs.gnustep.gui;
-                  gnustep-gorm              = pkgs.gnustep.gorm;
+
                   libfdt                    = pkgs.dtc;
                   default                   = armCross pkgs;
                 });
@@ -74,10 +71,6 @@
                           dtc
                           android-tools
                           gnumake
-                          gnustep.base
-                          gnustep.make
-                          gnustep.gui
-                          gnustep.gorm
                           pkgs.pkgsi686Linux.glibc
                         ];
 

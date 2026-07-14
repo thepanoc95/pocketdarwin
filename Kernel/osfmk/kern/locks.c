@@ -374,7 +374,7 @@ lck_attr_setdefault(
 #else
  	attr->lck_attr_val =  LCK_ATTR_DEBUG;
 #endif	/* !DEBUG */
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__arm64__)
     attr->lck_attr_val =  LCK_ATTR_DEBUG;
 #else
 #error Unknown architecture.
