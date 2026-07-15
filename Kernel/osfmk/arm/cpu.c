@@ -467,6 +467,33 @@ static int arm_dcache_l2_linesize;
 
 arm_processor_id_t arm_processor_id;
 
+#if defined(__arm64__)
+
+void get_cachetype_cp15()
+{
+    /* AArch64: cache info is available via CTR_EL0, CLIDR_EL1, CCSIDR_EL1 */
+    __asm __volatile("mrs %0, CTR_EL0" : "=r"(arm_processor_id.processor_midr));
+}
+
+u_int cpu_pfr(int num)
+{
+    u_int feat = 0;
+    switch (num) {
+    case 0:
+        __asm __volatile("mrs %0, ID_AA64ISAR0_EL1" : "=r"(feat));
+        break;
+    case 1:
+        __asm __volatile("mrs %0, ID_AA64ISAR1_EL1" : "=r"(feat));
+        break;
+    default:
+        panic("Processor Feature Register %d not implemented", num);
+        break;
+    }
+    return (feat);
+}
+
+#else /* !__arm64__ */
+
 void get_cachetype_cp15()
 {
     u_int ctype, isize, dsize, cpuid;
@@ -563,6 +590,8 @@ void get_cachetype_cp15()
     }
 }
 
+#endif /* !__arm64__ - end of get_cachetype_cp15 */
+
 static void print_enadis(int enadis, char *s)
 {
 
@@ -571,6 +600,8 @@ static void print_enadis(int enadis, char *s)
 
 int ctrl;
 enum cpu_class cpu_class = CPU_CLASS_NONE;
+
+#if !defined(__arm64__)
 
 u_int cpu_pfr(int num)
 {
@@ -590,6 +621,8 @@ u_int cpu_pfr(int num)
 
     return (feat);
 }
+
+#endif /* !__arm64__ - end of cpu_pfr */
 
 static
 void identify_armv7(void)
@@ -648,6 +681,7 @@ void identify_armv7(void)
     kprintf("\n");
 }
 
+#if !defined(__arm64__)
 void identify_arm_cpu(void)
 {
     u_int cpuid, reg, size, sets, ways;
@@ -808,6 +842,8 @@ void identify_arm_cpu(void)
         }
     }
 }
+
+#endif /* !__arm64__ - identify_arm_cpu */
 
 /**
  * cpu_bootstrap

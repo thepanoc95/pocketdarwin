@@ -72,6 +72,7 @@
                           android-tools
                           gnumake
                           pkgs.pkgsi686Linux.glibc
+                          kotlin
                         ];
 
             shellHook = ''

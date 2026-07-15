@@ -40,6 +40,9 @@
 #include <arm/cpu_data.h>
 #include <kern/thread.h>
 #include <arm/misc_protos.h>
+
+extern void vfp_context_save(arm_vfp_state_t *);
+extern void vfp_enable_exception(int);
 #include <kern/kalloc.h>
 #include <vm/vm_kern.h>
 #include <vm/vm_map.h>
@@ -254,7 +257,7 @@ static void save_vfp_context(thread_t thread)
 {
     assert(thread);
     if(thread->machine.vfp_enable && !thread->machine.vfp_dirty) {
-        vfp_context_save(thread->machine.vfp_regs);
+        vfp_context_save(&thread->machine.vfp_regs);
         vfp_enable_exception(FALSE);
     }
 }

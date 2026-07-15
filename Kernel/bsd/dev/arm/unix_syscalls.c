@@ -81,7 +81,11 @@
 
 #include <arm/machine_routines.h>
 
+#include <sys/kauth.h>
 #include <sys/kdebug.h>
+#include <security/mac_mach_internal.h>
+
+extern void *find_user_regs(thread_t);
 #include <sys/sdt.h>
 
 #include <security/audit/audit.h>
@@ -196,7 +200,7 @@ void unix_syscall(arm_saved_state_t * state)
 #endif
 
 #if CONFIG_MACF
-    mac_thread_userret(code, error, thread);
+    mac_thread_userret(thread);
 #endif
 
     if (error)
@@ -273,7 +277,7 @@ void unix_syscall_return(int error)
     proc = current_proc();
     uthread = get_bsdthread_info(thread_act);
 
-    state = find_user_regs(thread_act);
+    state = (arm_saved_state_t *)find_user_regs(thread_act);
 
     if (state->r[12] != 0)
         code = state->r[12];

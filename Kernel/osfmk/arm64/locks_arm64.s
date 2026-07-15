@@ -366,5 +366,6 @@ lmupanic:
     bl      _panic
 L_lmupanicstr:
     .asciz "lck_mtx_unlock(): MUTEX 0x%08x 0x%08x"
+    .align 2
 mluexit:
     ret     lr

@@ -29,6 +29,7 @@
 
 #include <arm64/asm.h>
 #include <arm/asm_help.h>
+#include <assym.s>
 
 /*
  * get_preemption_level - returns current preemption level
@@ -40,7 +41,8 @@
 _get_preemption_level:
 	mrs	x12, TPIDR_EL1
 	cbz	x12, .Lget_preempt_zero
-	ldr	w0, [x12, THREAD_PREEMPT_COUNT]
+	add	x13, x12, MACHINE_THREAD_PREEMPT_COUNT
+	ldr	w0, [x13]
 	ret
 .Lget_preempt_zero:
 	mov	w0, #0
@@ -59,9 +61,10 @@ _disable_preemption:
 disable_preemption:
 	mrs	x12, TPIDR_EL1
 	cbz	x12, .Ldisable_preempt_out
-	ldr	w2, [x12, THREAD_PREEMPT_COUNT]
+	add	x13, x12, MACHINE_THREAD_PREEMPT_COUNT
+	ldr	w2, [x13]
 	add	w2, w2, #1
-	str	w2, [x12, THREAD_PREEMPT_COUNT]
+	str	w2, [x13]
 .Ldisable_preempt_out:
 	ret
 
@@ -78,9 +81,10 @@ _enable_preemption:
 enable_preemption:
 	mrs	x12, TPIDR_EL1
 	cbz	x12, .Lenable_preempt_out
-	ldr	w2, [x12, THREAD_PREEMPT_COUNT]
+	add	x13, x12, MACHINE_THREAD_PREEMPT_COUNT
+	ldr	w2, [x13]
 	subs	w2, w2, #1
-	str	w2, [x12, THREAD_PREEMPT_COUNT]
+	str	w2, [x13]
 	b.ne	.Lenable_preempt_out
 .Lenable_preempt_out:
 	ret
@@ -108,7 +112,8 @@ _ml_set_interrupts_enabled:
 _ml_get_interrupts_enabled:
 	mrs	x1, DAIF
 	mov	w0, #1
-	bic	w0, w0, x1
+	tst	x1, #0xf0
+	csel	w0, wzr, w0, ne
 	ret
 
 /*

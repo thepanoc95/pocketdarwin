@@ -129,11 +129,19 @@ do
     fi
     rm -f "${temp}.c" "${temp}.d"
     (echo '#line 1 '\"${file}\" ; cat "${file}" ) > "${temp}.c"
-    "$C" -E ${arch_flag} ${cppflags} -I "${sourcedir}" "${iSysRootParm[@]}" "${temp}.c" | "$M" "${migflags[@]}" | sed 's/()\([^a-zA-Z_]*memcpy\)/\1/g; s/()\([^a-zA-Z_]*bcopy\)/\1/g; s/()\([^a-zA-Z_]*memset\)/\1/g; s/()\([^a-zA-Z_]*bzero\)/\1/g'
+    "$C" -E ${arch_flag} ${cppflags} -I "${sourcedir}" "${iSysRootParm[@]}" "${temp}.c" | "$M" "${migflags[@]}"
     if [ ${PIPESTATUS[1]} -ne 0 ]; then
         rm -rf "${temp}.c" "${temp}.d" "${WORKTMP}"
         exit 1
     fi
+    _mig_sed_fix() {
+        for _f in "$@"; do
+            if [ -f "$_f" ]; then
+                sed -i 's/()memcpy/memcpy/g; s/()bcopy/bcopy/g; s/()memset/memset/g; s/()bzero/bzero/g; s/() mig_strncpy/mig_strncpy/g' "$_f"
+            fi
+        done
+    }
+    _mig_sed_fix "${user}" "${server}" 2>/dev/null
     if [ "${sawMD}" -a -f "${temp}.d" ]; then
         deps=
         s=

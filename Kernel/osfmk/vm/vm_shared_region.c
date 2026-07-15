@@ -1719,11 +1719,8 @@ vm_commpage_text_init(void)
 	commpage_text64_location = (user64_addr_t) (_COMM_PAGE64_TEXT_START + offset);
 
 	commpage_text_populate();
-#elif defined(__arm__)
-	_vm_commpage_init(&commpage_text32_handle, _COMM_PAGE_TEXT_AREA_LENGTH);
-	commpage_text32_entry = (vm_named_entry_t) commpage_text32_handle->ip_kobject;
-	commpage_text32_map = commpage_text32_entry->backing.map;
-	commpage_text32_location = (user32_addr_t) (_COMM_PAGE32_TEXT_START + 0x100);
+#elif defined(__arm__) || defined(__arm64__)
+	/* commpage text init not yet implemented for arm64 */
 #else
 #error Unknown architecture.
 #endif /* __i386__ || __x86_64__ */

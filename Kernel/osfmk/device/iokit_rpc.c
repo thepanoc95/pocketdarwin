@@ -592,7 +592,7 @@ ppnum_t IOGetLastPageNumber(void)
 			highest = lastPage;
 	}
 	return (highest);
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__arm64__)
 	return 0;
 #else
 #error unknown arch

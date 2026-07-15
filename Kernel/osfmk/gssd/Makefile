@@ -62,7 +62,7 @@ ${MIG_KUSRC} : gssd_mach.defs
 		$<
 	# Workaround: MIG generates "() mig_strncpy" for c_string copyout
 	# on certain platforms. Replace with correct "mig_strncpy".
-	$(_v)sed -i 's/() mig_strncpy/mig_strncpy/g' $*.c
+	$(_v)sed -i 's/() mig_strncpy/mig_strncpy/g; s/()memcpy/memcpy/g; s/()bcopy/bcopy/g; s/()memset/memset/g; s/()bzero/bzero/g' $*.c
 
 include $(MakeInc_rule)
 

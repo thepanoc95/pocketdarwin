@@ -54,7 +54,9 @@ extern int disableConsoleOutput, serialmode;
 void arm_processor_identify(void)
 {
     get_cachetype_cp15();
+#if !defined(__arm64__)
     identify_arm_cpu();
+#endif
 }
 
 /**

@@ -326,7 +326,11 @@ kdp_sync_cache(void)
 void
 kdp_call(void)
 {
+#if defined(__arm64__)
+	__asm__ volatile ("brk #3"); /* Let the processor do the work */
+#else
 	__asm__ volatile ("bkpt #3"); /* Let the processor do the work */
+#endif
 }
 
 void
@@ -335,8 +339,13 @@ kdp_machine_get_breakinsn(
 	uint32_t *size
 )
 {
+#if defined(__arm64__)
+	*(uint32_t *)bytes = 0xD4200060; /* BRK #3 */
+	*size = sizeof(uint32_t);
+#else
 	*(uint32_t *)bytes = 0xe1200070;
 	*size = sizeof(uint32_t);
+#endif
 }
 
 static struct kdp_callout {

@@ -7,4 +7,6 @@
 
 #define	pal_kernel_announce() do { } while(0)
 
+extern void pal_dbg_set_task_name(task_t task);
+
 #endif

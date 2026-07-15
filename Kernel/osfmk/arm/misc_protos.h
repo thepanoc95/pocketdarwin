@@ -76,7 +76,9 @@ void sleh_abort(void *context, int reason);
 void cache_initialize(void);
 
 void get_cachetype_cp15();
+#if !defined(__arm64__)
 void identify_arm_cpu(void);
+#endif
 
 extern void machine_startup(void);
 extern void Halt_system(void);

@@ -225,6 +225,8 @@ bsdthread_create(__unused struct proc *p, struct bsdthread_create_args  *uap, us
 	stackaddr = 0xB0000000;
 #elif defined(__arm__)
     stackaddr = 0x2FD00000;
+#elif defined(__arm64__)
+    stackaddr = 0x2FD00000;
 #else
 #error Need to define a stack address hint for this architecture
 #endif
@@ -368,6 +370,28 @@ bsdthread_create(__unused struct proc *p, struct bsdthread_create_args  *uap, us
 		ts->r[5] = (uint32_t)uap->flags;
 
 		thread_set_wq_state32(th, (thread_state_t)ts);
+	}
+#elif defined(__arm64__)
+	{
+		/* Set up ARM64 registers... */
+		arm_thread_state64_t state;
+		arm_thread_state64_t *ts = &state;
+
+		/* Set fp and lr to zero for better stack tracing */
+		ts->lr = 0;
+		ts->fp = 0;
+
+		ts->pc = (uint64_t)p->p_threadstart;
+		ts->sp = (uint64_t)((vm_offset_t)(th_stack-C_32_STK_ALIGN));
+
+		ts->x[0] = (uint64_t)th_pthread;
+		ts->x[1] = (uint64_t)th_thport;
+		ts->x[2] = (uint64_t)user_func;
+		ts->x[3] = (uint64_t)user_funcarg;
+		ts->x[4] = (uint64_t)user_stacksize;
+		ts->x[5] = (uint64_t)uap->flags;
+
+		thread_set_wq_state64(th, (thread_state_t)ts);
 	}
 #else
 #error bsdthread_create  not defined for this architecture
@@ -1059,6 +1083,8 @@ workqueue_addnewthread(struct workqueue *wq, boolean_t oc_thread)
 #if defined(__i386__) || defined(__x86_64__)
 	stackaddr = 0xB0000000;
 #elif defined(__arm__)
+    stackaddr = 0x2FE00000;
+#elif defined(__arm64__)
     stackaddr = 0x2FE00000;
 #else
 #error Need to define a stack address hint for this architecture
@@ -2276,7 +2302,7 @@ setup_wqthread(proc_t p, thread_t th, boolean_t overcommit, uint32_t priority, i
 
 		thread_set_wq_state64(th, (thread_state_t)ts64);
 	}
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__arm64__)
     /*
      * Set up ARM registers and call.
      */

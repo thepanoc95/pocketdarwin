@@ -56,6 +56,7 @@
 #include <mach/vm_statistics.h>
 #include <mach/task.h>
 #include <mach/thread_act.h>
+#include <pexpert/pexpert.h>
 
 #include <machine/vmparam.h>
 #include <machine/exec.h>

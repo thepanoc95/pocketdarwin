@@ -641,7 +641,7 @@ static inline void OSMemoryBarrier(void) {
 }
 #endif
 
-#if defined(__arm__)
+#if defined(__arm__) || defined(__arm64__)
 #ifndef __LP64__
 static inline void OSMemoryBarrier(void) {
 #if defined(_ARM_ARCH_7) || defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__)

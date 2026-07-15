@@ -437,7 +437,7 @@ SYSCTL_INT(_hw_optional, OID_AUTO, avx1_0, CTLFLAG_RD | CTLFLAG_KERN | CTLFLAG_L
 SYSCTL_INT(_hw_optional, OID_AUTO, rdrand, CTLFLAG_RD | CTLFLAG_KERN | CTLFLAG_LOCKED, &rdrand_flag, 0, "");
 SYSCTL_INT(_hw_optional, OID_AUTO, f16c, CTLFLAG_RD | CTLFLAG_KERN | CTLFLAG_LOCKED, &f16c_flag, 0, "");
 SYSCTL_INT(_hw_optional, OID_AUTO, enfstrg, CTLFLAG_RD | CTLFLAG_KERN | CTLFLAG_LOCKED, &enfstrg_flag, 0, "");
-#elif defined (__arm__)
+#elif defined (__arm__) || defined(__arm64__)
 int arm_isa_flag = -1;
 int arm_thumb_flag = -1;
 int arm_thumb2_flag = -1;
@@ -501,7 +501,7 @@ sysctl_mib_init(void)
 	cputhreadtype = cpu_threadtype();
 #if defined(__i386__) || defined (__x86_64__)
     cpu64bit = (_get_cpu_capabilities() & k64Bit) == k64Bit;
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__arm64__)
 
 #else
 #error Unsupported arch
@@ -570,6 +570,27 @@ sysctl_mib_init(void)
 	OrBits(arm_armvm_flag, kProcessorFeatureMicrocontroller);
 #undef OrBits
 
+	/* hw.cpufamily */
+	cpufamily = CPUFAMILY_ARM_13;
+
+	/* hw.cacheconfig */
+	cacheconfig[0] = ml_cpu_cache_sharing(0);
+	cacheconfig[1] = ml_cpu_cache_sharing(1);
+	cacheconfig[2] = ml_cpu_cache_sharing(2);
+	cacheconfig[3] = ml_cpu_cache_sharing(3);
+	cacheconfig[4] = 0;
+
+	/* hw.cachesize */
+	cachesize[0] = ml_cpu_cache_size(0);
+	cachesize[1] = ml_cpu_cache_size(1);
+	cachesize[2] = ml_cpu_cache_size(2);
+	cachesize[3] = ml_cpu_cache_size(3);
+	cachesize[4] = 0;
+
+	/* hw.packages */
+	packages = 1;
+
+#elif defined(__arm64__)
 	/* hw.cpufamily */
 	cpufamily = CPUFAMILY_ARM_13;
 

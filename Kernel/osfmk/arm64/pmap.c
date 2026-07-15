@@ -472,7 +472,7 @@ void pmap_zero_page(ppnum_t p)
 {
     assert(p != vm_page_fictitious_addr);
     assert(pmap_valid_page(p));
-    bzero(phys_to_virt(p), PAGE_SIZE);
+    bzero((void *)(uintptr_t)phys_to_virt(p), PAGE_SIZE);
 }
 
 /**

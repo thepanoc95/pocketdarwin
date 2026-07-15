@@ -433,7 +433,7 @@
 
 #define THUMB_INSN_SIZE		2		/* Some are 4 bytes.  */
 
-#if !defined(__ASSEMBLER__) && !defined(_RUMPKERNEL)
+#if !defined(__ASSEMBLER__) && !defined(_RUMPKERNEL) && !defined(__arm64__)
 #define	ARMREG_READ_INLINE(name, __insnstring)			\
 static inline uint32_t armreg_##name##_read(void)		\
 {								\

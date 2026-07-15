@@ -85,6 +85,14 @@ mythread_state_flavor_t thread_flavor_array [] = {
         {ARM_DEBUG_STATE, ARM_DEBUG_STATE_COUNT}
 		};
 int mynum_flavors=4;
+#elif defined(__arm64__)
+mythread_state_flavor_t thread_flavor_array [] = {
+		{ARM_THREAD_STATE64, ARM_THREAD_STATE64_COUNT},
+		{ARM_NEON_STATE64, ARM_NEON_STATE64_COUNT},
+		{ARM_EXCEPTION_STATE64, ARM_EXCEPTION_STATE64_COUNT},
+		{ARM_DEBUG_STATE64, ARM_DEBUG_STATE64_COUNT}
+		};
+int mynum_flavors=4;
 #else
 #error architecture not supported
 #endif

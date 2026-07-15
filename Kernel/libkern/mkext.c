@@ -29,6 +29,11 @@
 #include <string.h>
 #include <libkern/mkext.h>
 
+#if defined __x86_64__ || defined __i386__ || defined _ARM_ARCH_6
+extern unsigned long adler32_vec(unsigned long adler, unsigned long sum2,
+                                 const unsigned char *buf, unsigned len);
+#endif
+
 
 #define BASE 65521L /* largest prime smaller than 65536 */
 #define NMAX 5552  // the largest n such that 255n(n+1)/2 + (n+1)(BASE-1) <= 2^32-1

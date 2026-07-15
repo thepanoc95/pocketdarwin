@@ -73,7 +73,6 @@
  * pmap locking
  */
 
-#if 0
 #define PMAP_LOCK(pmap) {		     \
     simple_lock(&(pmap)->lock);	    \
 }
@@ -81,7 +80,6 @@
 #define PMAP_UNLOCK(pmap) {			      \
     simple_unlock(&(pmap)->lock);		  \
 }
-#endif
 
 #define l2_size(size) ((uint32_t)((size >> 20) << 10))
 

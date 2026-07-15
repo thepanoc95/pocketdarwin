@@ -470,7 +470,7 @@ S_KCC	= $(CC)
 #
 # Default SFLAGS
 #
-export SFLAGS_GEN = -D__ASSEMBLER__ $(OTHER_CFLAGS)
+export SFLAGS_GEN = -D__ASSEMBLER__ $(if $(filter Linux,$(shell uname -s)),-integrated-as) $(OTHER_CFLAGS)
 
 export SFLAGS_RELEASE 	= 
 export SFLAGS_DEVELOPMENT 	= 
@@ -494,6 +494,9 @@ export SFLAGS 	= $(SFLAGS_GEN) \
 # Linker command
 #
 LD	= $(KC++) -nostdlib
+ifeq ($(shell uname),Linux)
+LD	= ld64.lld -arch arm64 -platform_version macos 11.0.0 11.0.0 -static
+endif
 
 #
 # Default LDFLAGS
@@ -655,13 +658,20 @@ export BUILD_MACHO_OBJ	= 0
 export BUILD_LTO	= 1
 else
 export CFLAGS_NOLTO_FLAG =
+ifeq ($(shell uname),Linux)
+export BUILD_MACHO_OBJ	= 0
+else
 export BUILD_MACHO_OBJ	= 1
+endif
 export BUILD_LTO	= 0
 endif
 
 #
 # Support for LLVM Integrated Assembler with clang driver
 #
+ifeq ($(UNAME_S),Linux)
+export BUILD_INTEGRATED_ASSEMBLER	= 1
+endif
 ifeq ($(BUILD_INTEGRATED_ASSEMBLER),1)
 export SFLAGS_GEN	+= -integrated-as
 export CFLAGS_GEN	+= -integrated-as

@@ -246,7 +246,7 @@ else ifeq ($(UNAME_S),Linux)
 	##
 	# Misc. tools for building
 	##
-	export MIG := mig
+	export MIG := $(SRCROOT)/tools/mig
 	export MIGCC := clang
 	export UNIFDEF := unifdef
 	export DSYMUTIL := /bin/true

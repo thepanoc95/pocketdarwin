@@ -41,6 +41,10 @@
 #include <pexpert/arm/boot.h>
 #include <machine/machine_routines.h>
 #include <vm/pmap.h>
+#include <arm/pmap.h>
+
+extern void *pmap_steal_memory(vm_size_t size);
+extern vm_offset_t pmap_extract(pmap_t pmap, vm_offset_t virt);
 
 #define KPRINTF_PREFIX  "PE_Generic: "
 
@@ -92,8 +96,8 @@ static void generic_handle_interrupt(void *context __unused)
 
 static void generic_framebuffer_init(void)
 {
-    void *framebuffer = pmap_steal_memory(1024 * 768 * 4);
-    void *framebuffer_phys = pmap_extract(kernel_pmap, framebuffer);
+    void *framebuffer = (void *)pmap_steal_memory(1024 * 768 * 4);
+    void *framebuffer_phys = (void *)pmap_extract(kernel_pmap, (vm_offset_t)framebuffer);
 
     PE_state.video.v_baseAddr = (unsigned long)framebuffer_phys;
     PE_state.video.v_rowBytes = 1024 * 2;

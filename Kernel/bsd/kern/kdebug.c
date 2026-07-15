@@ -43,6 +43,11 @@
 #include <i386/rtclock_protos.h>
 #include <i386/mp.h>
 #include <i386/machine_routines.h>
+#elif defined(__arm__) || defined(__arm64__)
+extern void _disable_preemption(void);
+extern void _enable_preemption(void);
+#define disable_preemption _disable_preemption
+#define enable_preemption _enable_preemption
 #endif
 
 #include <kern/clock.h>
@@ -2340,8 +2345,10 @@ unsigned char *getProcName(struct proc *proc) {
 #define STACKSHOT_SUBSYS_UNLOCK() lck_mtx_unlock(&stackshot_subsys_mutex)
 #if defined(__i386__) || defined (__x86_64__)
 #define TRAP_DEBUGGER __asm__ volatile("int3");
-#elif defined(__arm__) || defined(__arm64__)
+#elif defined(__arm64__)
 #define TRAP_DEBUGGER __asm__ volatile("brk #0");
+#elif defined(__arm__)
+#define TRAP_DEBUGGER __asm__ volatile("bkpt #0");
 #endif
 
 #define SANE_TRACEBUF_SIZE (8 * 1024 * 1024)
