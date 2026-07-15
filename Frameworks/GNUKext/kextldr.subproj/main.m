@@ -13,11 +13,11 @@
 */
 
 #import <Foundation/Foundation.h>
-#import "GNUKext.h"
-#import "LinuxModule.h"
-#import "BSDModule.h"
-#import "DarwinModule.h"
-#import "kIOPlatformHandler.h"
+#import "../GNUKext.h"
+#import "../LinuxModule.h"
+#import "../BSDModule.h"
+#import "../DarwinModule.h"
+#import "../kIOPlatformHandler.h"
 
 static void printUsage(const char *progName)
 {
