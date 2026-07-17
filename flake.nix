@@ -1,5 +1,5 @@
 {
-  description = "PocketDarwin - Darwin/XNU on Android devices";
+  description = "PocketDarwin ... Darwin/XNU on Android devices";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -21,9 +21,9 @@
       ];
 
       postBuild = ''
-        for f in $out/bin/${cross.targetPlatform.config}-*; do
+        for f in $out/bin/${cross.stdenv.targetPlatform.config}-*; do
           name=$(basename "$f")
-          new_name=''${name/#${cross.targetPlatform.config}-/${prefix}-}
+          new_name=''${name/#${cross.stdenv.targetPlatform.config}-/${prefix}-}
           ln -sf "$f" "$out/bin/$new_name"
         done
       '';
@@ -44,8 +44,7 @@
         name = "arm-none-eabi-toolchain";
 
         paths =
-          [ pkgs.gcc-arm-embedded ]
-          ++ (pkgs.gcc-arm-embedded.getPackages or []);
+          [ pkgs.gcc-arm-embedded ];
 
         postBuild = "";
       };
@@ -107,8 +106,7 @@
             perl
             tcsh
             dpkg
-            devscripts
-            debhelper
+            debian-devscripts
             db
             openssl.dev
             libuuid
@@ -116,6 +114,11 @@
             dtc
             android-tools
             kotlin
+            gnustep-make
+            gnustep-libobjc
+            gnustep-base
+            gnustep-gui
+            gnustep-back
             pkgsi686Linux.glibc
             pkgsi686Linux.glibc.dev
           ];
@@ -123,15 +126,7 @@
           shellHook = ''
             export CROSS_COMPILE=arm-linux-gnueabihf-
             export LD_LIBRARY_PATH="${libPath}:$LD_LIBRARY_PATH"
-
-            echo "========================================="
-            echo " PocketDarwin Development Shell"
-            echo "========================================="
-            echo "CROSS_COMPILE=$CROSS_COMPILE"
-            echo "CC=$(command -v clang)"
-            echo "ARM GCC=$(command -v arm-linux-gnueabihf-gcc)"
-            echo "ARM EABI GCC=$(command -v arm-none-eabi-gcc)"
-            echo "========================================="
+            source $(gnustep-config --variable=GNUSTEP_MAKEFILES)/GNUstep.sh
           '';
         };
       });

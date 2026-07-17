@@ -12,6 +12,9 @@ CC := $(shell which clang)
 CFLAGS += \
 	-Wall \
 	-Werror \
+	-Wno-deprecated-non-prototype \
+	-Wno-single-bit-bitfield-constant-conversion \
+	-fcommon \
 	-O2
 
 C_SRCS := \

@@ -117,8 +117,8 @@ static int	oldYYBegin = 0;
 
 int lineno = 0;			/* Replaces lex yylineno */
 
-static void doSharp(); /* process body of # directives */
-extern void yyerror();
+static void doSharp(char *body); /* process body of # directives */
+extern void yyerror(char *msg);
 %}
 
 %Start	Normal String FileName QString SkipToEOL

@@ -28,8 +28,33 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef _OTOOL_H
+#define _OTOOL_H
+
 #include <stuff/bool.h>
+#include "stuff/llvm.h"
 #include "llvm-c/Disassembler.h"
+#include <stdio.h>
+#include <stuff/bytesex.h>
+#include <mach-o/loader.h>
+
+typedef unsigned long long bfd_vma;
+typedef unsigned char bfd_byte;
+typedef enum bool bfd_boolean;
+typedef int (*fprintf_ftype) (void *, const char*, ...);
+typedef enum bfd_endian {
+    BFD_ENDIAN_BIG,
+    BFD_ENDIAN_LITTLE,
+    BFD_ENDIAN_UNKNOWN
+} enum_bfd_endian;
+
+typedef struct bfd_section {
+    char *name;
+} *bfd_section_ptr;
+
+#define INSN_HAS_RELOC	0x80000000
+
+struct section;
 
 /* Name of this program for error messages (argv[0]) */
 extern char *progname;
@@ -89,4 +114,106 @@ struct inst {
     uint64_t raw_target_address;
 };
 
-#endif /* !defined(STRUCT_INST) */
+#endif
+
+struct disassemble_info {
+    void *application_data;
+    fprintf_ftype fprintf_func;
+    void *stream;
+    void (*print_address_func)(bfd_vma pc, bfd_vma addr,
+                               struct disassemble_info *info);
+    int (*read_memory_func)(bfd_vma memaddr, bfd_byte *myaddr,
+                            unsigned int length,
+                            struct disassemble_info *info);
+    void (*memory_error_func)(int status, bfd_vma memaddr,
+                              struct disassemble_info *info);
+    int (*symbol_at_address_func)(bfd_vma addr,
+                                  struct disassemble_info *info);
+    enum bool verbose;
+    unsigned int flags;
+    bfd_vma sec_base_address;
+    struct relocation_info *relocs;
+    uint32_t nrelocs;
+    struct nlist *symbols;
+    struct nlist_64 *symbols64;
+    uint32_t nsymbols;
+    struct symbol *sorted_symbols;
+    uint32_t nsorted_symbols;
+    struct relocation_info *sorted_relocs;
+    uint32_t nsorted_relocs;
+    char *strings;
+    uint32_t strings_size;
+    enum byte_sex object_byte_sex;
+    uint32_t *indirect_symbols;
+    uint32_t nindirect_symbols;
+    char *sect;
+    uint32_t left;
+    uint32_t addr;
+    uint32_t sect_addr;
+    uint32_t ncmds;
+    uint32_t sizeofcmds;
+    struct load_command *load_commands;
+    char *object_addr;
+    uint32_t object_size;
+    struct relocation_info *ext_relocs;
+    uint32_t next_relocs;
+    struct relocation_info *loc_relocs;
+    uint32_t nloc_relocs;
+    struct dyld_bind_info *dbi;
+    uint64_t ndbi;
+    uint32_t cpu_type;
+    uint32_t cputype;
+    uint64_t adrp_addr;
+    uint32_t adrp_inst;
+    struct inst *inst;
+    struct inst *insts;
+    uint32_t ninsts;
+    char *demangled_name;
+    enum bool swapped;
+    char *method;
+    const char *class_name;
+    const char *selector_name;
+    uint64_t seg_addr;
+    struct data_in_code_entry *dices;
+    uint32_t ndices;
+    LLVMDisasmContextRef arm_dc;
+    LLVMDisasmContextRef thumb_dc;
+    enum bool in_thumb;
+    char *seg;
+    char *start;
+    bfd_vma (*symbol_at_address)(bfd_vma addr, struct disassemble_info *info);
+
+    /* ARM-specific fields (from binutils dis-asm.h) */
+    uint32_t mach;
+    int bytes_per_line;
+    int bytes_per_chunk;
+    enum bfd_endian display_endian;
+    enum bool (*print_immediate_func)(bfd_vma pc, unsigned int imm,
+                                      struct disassemble_info *info,
+                                      enum bool pool);
+    uint32_t arch;
+    struct inst *indirect;
+    const char *name;
+    bfd_vma r_address;
+    uint32_t r_extern;
+    uint32_t r_length;
+    int r_scattered;
+    bfd_vma value;
+    struct section *section;
+    char *symtab;
+    uint32_t symtab_pos;
+    uint64_t symtab_size;
+    void *internal_elf_sym;
+    int (*assembler)(void);
+    char *disassembler_options;
+    int all;
+    union {
+        uint32_t u32;
+        uint64_t u64;
+    } u;
+};
+
+extern struct disassemble_info dis_info;
+extern enum bool in_thumb;
+
+#endif /* _OTOOL_H */

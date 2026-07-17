@@ -58,6 +58,14 @@
 #include "arm64_disasm.h"
 #include "llvm-c/Disassembler.h"
 
+typedef unsigned long long bfd_vma;
+typedef unsigned char bfd_byte;
+
+/* Forward declaration for disassembler structs defined in disassembler files */
+struct disassemble_info;
+
+struct disassemble_info dis_info;
+
 /* Name of this program for error messages (argv[0]) */
 char *progname = NULL;
 

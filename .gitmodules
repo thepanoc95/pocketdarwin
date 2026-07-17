@@ -28,3 +28,7 @@
 [submodule "boot/openmach"]
 	path = boot/openmach
 	url = https://github.com/openmach/openmach.git
+
+[submodule "BuildHost/xnu-deps-linux"]
+	path = BuildHost/xnu-deps-linux
+	url = https://github.com/Darm64/xnu-deps-linux.git

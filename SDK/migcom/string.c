@@ -107,10 +107,10 @@ strfree(string)
 }
 
 char *
-strbool(bool)
-    boolean_t bool;
+strbool(bval)
+    boolean_t bval;
 {
-    if (bool)
+    if (bval)
 	return "TRUE";
     else
 	return "FALSE";

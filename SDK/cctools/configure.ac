@@ -122,7 +122,7 @@ case "$CCVERSION" in
   * )
     WARNINGS="$WARNINGS -Wall -Wno-format -Wno-enum-compare -Wno-unused-result -Wno-unused-variable"
     WARNINGS="$WARNINGS -Wno-unused-but-set-variable -Wno-deprecated -Wno-deprecated-declarations"
-    WARNINGS="$WARNINGS -Wno-char-subscripts -Wno-strict-aliasing"
+    WARNINGS="$WARNINGS -Wno-char-subscripts -Wno-strict-aliasing -Wno-format-security"
     OBJCWARNINGS="-Wall"
     CFLAGS="$CFLAGS -std=gnu99 -D__private_extern__="
     CXXFLAGS="$CXXFLAGS -D__private_extern__="
@@ -409,7 +409,7 @@ AC_CONFIG_FILES([as/ppc64/Makefile])
 AC_CONFIG_FILES([misc/Makefile])
 AC_CONFIG_FILES([otool/Makefile])
 
-if test "x$isdarwin" != "xyes"; then
+if test "x$isdarwin" = "xyes"; then
   AC_CONFIG_FILES([libobjc2/Makefile])
 fi
 

@@ -1615,55 +1615,6 @@ static unsigned int xmm_rm(int r_m, int rex)
 }
 
 /*
- * This is passed to the llvm disassembler.
- */
-struct disassemble_info {
-  enum bool verbose;
-  /* Relocation information.  */
-  struct relocation_info *sorted_relocs;
-  uint32_t nsorted_relocs;
-  struct relocation_info *ext_relocs;
-  uint32_t next_relocs;
-  struct relocation_info *loc_relocs;
-  uint32_t nloc_relocs;
-  struct dyld_bind_info *dbi;
-  uint64_t ndbi;
-  /* Symbol table.  */
-  struct nlist *symbols;
-  struct nlist_64 *symbols64;
-  uint32_t nsymbols;
-  /* Symbols sorted by address.  */
-  struct symbol *sorted_symbols;
-  uint32_t nsorted_symbols;
-  /* String table.  */
-  char *strings;
-  uint32_t strings_size;
-  /* Other useful info.  */
-  uint32_t ncmds;
-  uint32_t sizeofcmds;
-  struct load_command *load_commands;
-  enum byte_sex object_byte_sex;
-  uint32_t *indirect_symbols;
-  uint32_t nindirect_symbols;
-  char *sect;
-  uint32_t left;
-  uint32_t addr;
-  uint32_t sect_addr;
-  cpu_type_t cputype;
-  LLVMDisasmContextRef i386_dc;
-  LLVMDisasmContextRef x86_64_dc;
-  char *object_addr;
-  uint32_t object_size;
-  struct inst *inst;
-  struct inst *insts;
-  uint32_t ninsts;
-  const char *class_name;
-  const char *selector_name;
-  char *method;
-  char *demangled_name;
-} dis_info;
-
-/*
  * i386_disassemble()
  */
 uint32_t

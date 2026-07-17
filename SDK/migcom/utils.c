@@ -934,7 +934,7 @@ void
 WriteLogMsg(file, rt, where, what)
     FILE *file;
     routine_t *rt;
-    int where, what;
+    boolean_t where, what;
 {
     string_t ptr_str;
     string_t StringOolPorts = strNULL;

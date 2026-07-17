@@ -87,7 +87,7 @@ extern void strfree( string_t string );
 
 #define	streql(a, b)	(strcmp((a), (b)) == 0)
 
-extern char *strbool( boolean_t bool );
+extern char *strbool( boolean_t bval );
 extern char *strstring( string_t string );
 extern char *toupperstr( char *string );
 

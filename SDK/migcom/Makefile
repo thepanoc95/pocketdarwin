@@ -1,15 +1,15 @@
 HOST_CPU := $(shell uname -m)
 ifeq ($(HOST_CPU),i386)
 	CPPFLAGS = -D__i386__ -DI386 -D__LITTLE_ENDIAN__
-	CFLAGS = -m32 -O2
+	CFLAGS = -O2
 endif
 ifeq ($(HOST_CPU),i686)
 	CPPFLAGS = -D__i386__ -DI386 -D__LITTLE_ENDIAN__
-	CFLAGS = -m32 -O2
+	CFLAGS = -O2
 endif
 ifeq ($(HOST_CPU),x86_64)
 	CPPFLAGS = -D__i386__ -DI386 -D__LITTLE_ENDIAN__
-	CFLAGS = -m32 -O2
+	CFLAGS = -O2
 endif
 ifeq ($(HOST_CPU),armv7l)
 	CPPFLAGS = -D__arm__ -DARM -D__LITTLE_ENDIAN__
@@ -33,7 +33,7 @@ OBJECTS = error.o global.o header.o lex.yy.o mig.o routine.o server.o \
 	statement.o string.o type.o user.o utils.o parser.o
 CPPFLAGS += -I include/ \
 	-include include/compat.h
-CFLAGS += -pipe
+CFLAGS += -pipe -std=gnu17
 LDFLAGS +=
 
 all: $(TARGET)

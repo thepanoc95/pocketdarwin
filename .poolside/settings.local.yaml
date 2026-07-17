@@ -26,3 +26,10 @@ tools:
             - ln *
             - "true"
             - nm *
+            - nix develop
+            - which nix *
+            - nix *
+            - git submodule add *
+            - git submodule *
+            - which clang
+            - readlink *

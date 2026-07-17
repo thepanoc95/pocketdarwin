@@ -1,6 +1,6 @@
 #!/bin/bash
 # XNU Clang++ wrapper for ARM (AArch32) cross-compilation on Linux.
-CLANG=/usr/bin/clang++
+CLANG=${CXX:-/usr/bin/clang++}
 ROOT="$(dirname "$(dirname "$0")")"
 
 exec "$CLANG" \

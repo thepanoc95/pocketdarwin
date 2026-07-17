@@ -66,6 +66,9 @@ ifeq ($(UNAME_S),Linux)
 # Add toolchain bin dir and BuildHost mig to PATH so sub-makes find our wrappers
 export PATH := $(ROOTDIR)/toolchain/bin:$(ROOTDIR)/BuildHost/xnu-deps-linux/out/bin:$(PATH)
 export MIGCOM
+CC_PATH := $(or $(CC),/usr/bin/cc)
+CXX_PATH := $(or $(CXX),/usr/bin/c++)
+export CC_PATH CXX_PATH
 ifeq ($(ARCH_CONFIG),ARM)
 CC := arm-linux-gnueabi-clang
 CXX := arm-linux-gnueabi-clang++

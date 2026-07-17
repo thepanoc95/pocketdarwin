@@ -5,57 +5,16 @@
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
 #include <mach-o/arm64/reloc.h>
+#include "otool.h"
 #include "stuff/bytesex.h"
 #include "stuff/symbol.h"
 #include "stuff/llvm.h"
 #include "stuff/allocate.h"
-#include "otool.h"
 #include "dyld_bind_info.h"
 #include "ofile_print.h"
 #include "arm64_disasm.h"
 #include "cxa_demangle.h"
 
-struct disassemble_info {
-  /* otool(1) specific stuff */
-  enum bool verbose;
-  /* Relocation information.  */
-  struct relocation_info *relocs;
-  uint32_t nrelocs;
-  struct relocation_info *ext_relocs;
-  uint32_t next_relocs;
-  struct relocation_info *loc_relocs;
-  uint32_t nloc_relocs;
-  struct dyld_bind_info *dbi;
-  uint64_t ndbi;
-  /* Symbol table.  */
-  struct nlist_64 *symbols;
-  uint32_t nsymbols;
-  /* Symbols sorted by address.  */
-  struct symbol *sorted_symbols;
-  uint32_t nsorted_symbols;
-  /* String table.  */
-  char *strings;
-  uint32_t strings_size;
-  /* Other useful info.  */
-  uint32_t ncmds;
-  uint32_t sizeofcmds;
-  struct load_command *load_commands;
-  enum byte_sex object_byte_sex;
-  uint32_t *indirect_symbols;
-  uint32_t nindirect_symbols;
-  char *sect;
-  uint32_t left;
-  uint32_t addr;
-  uint32_t sect_addr;
-  uint64_t adrp_addr;
-  uint32_t adrp_inst;
-  char *object_addr;
-  uint32_t object_size;
-  const char *class_name;
-  const char *selector_name;
-  char *method;
-  char *demangled_name;
-} dis_info;
 
 /*
  * This is using the public llmv-c based interface.
@@ -79,10 +38,10 @@ struct LLVMOpInfo1 *op_info)
 {
     uint32_t n_strx;
 
-	if(r_symbolnum >= dis_info->nsymbols)
-	    return(0);
-	n_strx = dis_info->symbols[r_symbolnum].n_un.n_strx;
-	if(n_strx <= 0 || n_strx >= dis_info->strings_size)
+if(r_symbolnum >= dis_info->nsymbols)
+    return(0);
+    n_strx = dis_info->symbols64[r_symbolnum].n_un.n_strx;
+    if(n_strx <= 0 || n_strx >= dis_info->strings_size)
 	    return(0);
 	op_info->AddSymbol.Present = 1;
 	op_info->AddSymbol.Name = dis_info->strings + n_strx;
@@ -458,7 +417,7 @@ struct disassemble_info *info)
 	    name = get_objc2_64bit_class_name(pointer_value, value,
 			info->load_commands, info->ncmds, info->sizeofcmds,
 			info->object_byte_sex, info->object_addr,
-			info->object_size, info->symbols, info->nsymbols,
+			info->object_size, info->symbols64, info->nsymbols,
 			info->strings, info->strings_size, CPU_TYPE_ARM64);
 	    if(name != NULL)
 		info->class_name = name;
@@ -473,7 +432,7 @@ struct disassemble_info *info)
 	    name = get_objc2_64bit_cfstring_name(value,
 			info->load_commands, info->ncmds, info->sizeofcmds,
 			info->object_byte_sex, info->object_addr,
-			info->object_size, info->symbols, info->nsymbols,
+			info->object_size, info->symbols64, info->nsymbols,
 			info->strings, info->strings_size, CPU_TYPE_ARM64);
 	    if(name == NULL)
 	        name = "bad cfstring ref";
@@ -508,7 +467,7 @@ struct disassemble_info *info)
 
 	name = guess_indirect_symbol(value, ncmds, sizeofcmds, load_commands,
 		object_byte_sex, info->indirect_symbols,info->nindirect_symbols,
-		NULL, info->symbols, info->nsymbols, info->strings,
+		NULL, info->symbols64, info->nsymbols, info->strings,
 		info->strings_size);
 	if(name != NULL){
 	    *reference_type =
@@ -610,11 +569,11 @@ const char **ReferenceName)
 	symbol_name = guess_symbol(SymbolValue, info->sorted_symbols,
 				   info->nsorted_symbols, TRUE);
 
-	if(*ReferenceType == LLVMDisassembler_ReferenceType_In_Branch){
-	    indirect_symbol_name = guess_indirect_symbol(SymbolValue,
+if(*ReferenceType == LLVMDisassembler_ReferenceType_In_Branch){
+    indirect_symbol_name = guess_indirect_symbol(SymbolValue,
 		    info->ncmds, info->sizeofcmds, info->load_commands,
 		    info->object_byte_sex, info->indirect_symbols,
-		    info->nindirect_symbols, NULL, info->symbols,
+		    info->nindirect_symbols, NULL, info->symbols64,
 		    info->nsymbols, info->strings, info->strings_size);
 	    if(indirect_symbol_name != NULL){
 		*ReferenceName = indirect_symbol_name;
@@ -854,7 +813,7 @@ LLVMDisasmContextRef dc)
 	dis_info.nloc_relocs = nloc_relocs;
 	dis_info.dbi = dbi;
 	dis_info.ndbi = ndbi;
-	dis_info.symbols = symbols;
+	dis_info.symbols64 = symbols;
 	dis_info.nsymbols = nsymbols;
 	dis_info.sorted_symbols = sorted_symbols;
 	dis_info.nsorted_symbols = nsorted_symbols;

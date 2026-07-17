@@ -32,7 +32,6 @@
 #import <mach-o/reloc.h>
 #import <mach-o/nlist.h>
 #import <stuff/bool.h>
-#include "otool.h"
 #include "stuff/symbol.h"
 #include "llvm-c/Disassembler.h"
 

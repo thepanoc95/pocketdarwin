@@ -12,7 +12,9 @@ CC := $(shell which clang)
 CFLAGS += \
 	-Wall \
 	-Werror \
-	-O2
+	-Wno-deprecated-non-prototype \
+	-O2 \
+	-I/usr/include/tirpc
 
 C_SRCS := \
 	rpc_clntout.c \

@@ -53,6 +53,15 @@ const char *BlobCore::stringAt(Offset offset) const
 }
 
 
+BlobCore *BlobCore::clone() const
+{
+	BlobCore *copy = (BlobCore *)malloc(mLength);
+	if (copy)
+		memcpy(copy, this, mLength);
+	return copy;
+}
+
+
 //
 // Read a blob from a standard file stream.
 // Reads in one pass, so it's suitable for transmission over pipes and networks.
